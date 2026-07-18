@@ -234,7 +234,7 @@ $CleanupItems = @(
     @{ Name = "Clear Thumbnail Cache"; Desc = "Clears cached picture previews - Windows regenerates them next time you browse folders.";
        Apply = { Remove-Item -Path "$env:LOCALAPPDATA\Microsoft\Windows\Explorer\thumbcache_*.db" -Force -ErrorAction SilentlyContinue } }
 
-    @{ Name = "Clear Browser/System Internet Cache"; Desc = "Clears cached web files stored by Windows components.";
+    @{ Name = "Clear Internet Cache"; Desc = "Clears cached web files stored by Windows components.";
        Apply = { Remove-Item -Path "$env:LOCALAPPDATA\Microsoft\Windows\INetCache\*" -Recurse -Force -ErrorAction SilentlyContinue } }
 
     @{ Name = "Flush DNS Cache"; Desc = "Clears stored website addresses - can fix websites failing to load."; 
