@@ -63,21 +63,12 @@ $AppCategories = [ordered]@{
     "Everyday Tools" = @(
         @{ Name = "7-Zip";              Id = "7zip.7zip";                  Desc = "Open zip files and compress your own." }
         @{ Name = "Adobe Acrobat Reader"; Id = "Adobe.Acrobat.Reader.64-bit"; Desc = "Open and read PDF files." }
-        @{ Name = "PowerToys";          Id = "Microsoft.PowerToys";        Desc = "Handy extra tools made by Microsoft." }
         @{ Name = "Notepad++";          Id = "Notepad++.Notepad++";        Desc = "A simple, powerful text editor." }
     )
     "Developer Tools" = @(
         @{ Name = "Visual Studio Code"; Id = "Microsoft.VisualStudioCode"; Desc = "Popular code editor for programmers." }
         @{ Name = "Git";                Id = "Git.Git";                    Desc = "Tool for tracking changes in code projects." }
         @{ Name = "Python";             Id = "Python.Python.3.12";        Desc = "Programming language, great for beginners." }
-    )
-    "Security and Privacy" = @(
-        @{ Name = "Malwarebytes";       Id = "Malwarebytes.Malwarebytes"; Desc = "Scans and removes malware." }
-        @{ Name = "Bitwarden";          Id = "Bitwarden.Bitwarden";        Desc = "Free password manager, keeps passwords safe." }
-    )
-    "Gaming" = @(
-        @{ Name = "Steam";              Id = "Valve.Steam";                Desc = "Store for buying and playing PC games." }
-        @{ Name = "Epic Games Launcher"; Id = "EpicGames.EpicGamesLauncher"; Desc = "Store for Epic Games titles, incl. Fortnite." }
     )
 }
 
@@ -162,7 +153,7 @@ $CleanupItems = @(
     @{ Name = "Clear Recent Files List"; Desc = "Clears the list of recently opened files shown in File Explorer."; 
        Apply = { Remove-Item -Path "$env:APPDATA\Microsoft\Windows\Recent\*" -Recurse -Force -ErrorAction SilentlyContinue } }
 
-    @{ Name = "Empty the Recycle Bin"; Desc = "Permanently deletes everything currently in the Recycle Bin.";
+    @{ Name = "Empty Recycle Bin"; Desc = "Permanently deletes everything currently in the Recycle Bin.";
        Apply = { Clear-RecycleBin -Force -ErrorAction SilentlyContinue } }
 
     @{ Name = "Clear Windows Update Leftovers"; Desc = "Frees up a lot of space by deleting old, already-installed update files."; 
@@ -175,7 +166,7 @@ $CleanupItems = @(
     @{ Name = "Clear Thumbnail Cache"; Desc = "Clears cached picture previews - Windows regenerates them next time you browse folders.";
        Apply = { Remove-Item -Path "$env:LOCALAPPDATA\Microsoft\Windows\Explorer\thumbcache_*.db" -Force -ErrorAction SilentlyContinue } }
 
-    @{ Name = "Clear Browser/System Internet Cache"; Desc = "Clears cached web files stored by Windows components.";
+    @{ Name = "Clear Internet Cache"; Desc = "Clears cached web files stored by Windows components.";
        Apply = { Remove-Item -Path "$env:LOCALAPPDATA\Microsoft\Windows\INetCache\*" -Recurse -Force -ErrorAction SilentlyContinue } }
 
     @{ Name = "Flush DNS Cache"; Desc = "Clears stored website addresses - can fix websites failing to load."; 
@@ -216,10 +207,10 @@ $CleanupItems = @(
                     <StackPanel Name="TweaksPanel" Margin="12"/>
                 </ScrollViewer>
             </TabItem>
-            <TabItem Header="Cleanup and Repair">
+            <TabItem Header="Cleanup">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="12">
-                        <TextBlock Text="Quick Cleanup (safe, reversible - Windows rebuilds all of this automatically)"
+                        <TextBlock Text="Quick Cleanup"
                                    FontSize="19" FontWeight="Bold" Foreground="#4ade80" Margin="0,4,0,6" TextWrapping="Wrap"/>
                         <StackPanel Name="CleanupPanel"/>
                         <Button Name="BtnRunCleanup" Content="Run" Padding="14,8" Margin="0,10,0,20"
@@ -232,14 +223,14 @@ $CleanupItems = @(
                 <StackPanel Margin="20">
                     <TextBlock Text="Owais Humayun" FontSize="22" FontWeight="Bold" Foreground="White"/>
                     <TextBlock Text="Free and open-source, forever." Foreground="White" Margin="0,10,0,0" FontSize="16" TextWrapping="Wrap"/>
-                    <TextBlock Text="This open source tool is designed by Owais Humayun - open tool for everyone." Foreground="White" Margin="0,10,0,0" FontSize="16" TextWrapping="Wrap"/>
-                    <TextBlock Text="This tool only installs apps through winget (Microsoft's official installer) and only changes settings you choose. A restore point is made automatically, so you can always undo everything." Foreground="#cbd5e1" Margin="0,15,0,0" FontSize="15" TextWrapping="Wrap"/>
+                    <TextBlock Text="This open source tool is designed by Owais Humayun." Foreground="White" Margin="0,10,0,0" FontSize="16" TextWrapping="Wrap"/>
+                    <TextBlock Text="This tool only installs apps through winget (Microsoft's official installer) and only changes settings you choose." Foreground="#cbd5e1" Margin="0,15,0,0" FontSize="15" TextWrapping="Wrap"/>
                 </StackPanel>
             </TabItem>
         </TabControl>
 
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
-            <Button Name="BtnApply" Content="Apply" Padding="16,10" Margin="6" FontSize="17" FontWeight="Bold"
+            <Button Name="BtnApply" Content="Apply" Padding="16,10" Margin="6" FontSize="17"
                     ToolTip="Installs the apps and applies the tweaks you ticked."/>
             <Button Name="BtnRestorePoint" Content="Cancel" Padding="16,10" Margin="6" FontSize="17"
                     ToolTip="Closes without applying anything."/>
@@ -357,7 +348,9 @@ $BtnApply.Add_Click({
         foreach ($app in $AppCategories[$category]) {
             if ($AppCheckboxes[$app.Id].IsChecked) {
                 Write-Host "[OwaisHumayun] Installing $($app.Name)..." -ForegroundColor Cyan
-                Start-Process winget -ArgumentList "install --id $($app.Id) --silent --accept-package-agreements --accept-source-agreements" -Wait -NoNewWindow
+                # --source winget locks this to Microsoft's official, vetted app source only.
+                # No --version is passed, so winget always grabs the newest available release.
+                Start-Process winget -ArgumentList "install --id $($app.Id) --source winget --silent --accept-package-agreements --accept-source-agreements" -Wait -NoNewWindow
             }
         }
     }
