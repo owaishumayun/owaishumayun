@@ -195,8 +195,8 @@ $Tweaks = @(
        Desc = "Prioritizes speed over battery savings - best for desktops, less ideal for laptops on battery.";
        Apply = { Start-Process powercfg -ArgumentList "/s 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c" -Wait -NoNewWindow } }
 
-    @{ Name = "Reset Network Adapters (Release and Renew IP)"; Tier = "Advanced";
-       Desc = "Releases and renews your IP address and flushes DNS - can fix internet connection problems. Briefly disconnects you from the network.";
+    @{ Name = "Reset Network Adapters"; Tier = "Advanced";
+       Desc = "Can fix internet connection problems. Briefly disconnects you from the network.";
        Apply = {
             Start-Process ipconfig -ArgumentList "/release" -Wait -NoNewWindow
             Start-Process ipconfig -ArgumentList "/renew" -Wait -NoNewWindow
