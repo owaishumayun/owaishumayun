@@ -1,8 +1,8 @@
 #Requires -RunAsAdministrator
 <#
     Owais Humayun
-    Install Programs, Tweaks, Fixes, and Updates for Windows 10/11
-    Designed to be usable by anyone - from kids to grandparents.
+    Install Programs, Tweaks, and Fixes for Windows 10/11
+    Simple. Safe. Free.
     License: MIT
     Repo:    https://github.com/owaishumayun/owaishumayun
 #>
@@ -55,27 +55,21 @@ $AppCategories = [ordered]@{
     "Chat and Video Calls" = @(
         @{ Name = "Zoom";               Id = "Zoom.Zoom";                  Desc = "Video calls with family, friends, or work." }
         @{ Name = "WhatsApp";           Id = "WhatsApp.WhatsApp";          Desc = "Chat and video call on your computer." }
-        @{ Name = "Discord";            Id = "Discord.Discord";            Desc = "Chat app popular with gamers and communities." }
-        @{ Name = "Skype";              Id = "Microsoft.Skype";            Desc = "Classic video calling app." }
     )
     "Music and Video" = @(
         @{ Name = "VLC Media Player";   Id = "VideoLAN.VLC";               Desc = "Plays almost any video or audio file." }
         @{ Name = "Spotify";            Id = "Spotify.Spotify";            Desc = "Stream and listen to music." }
-        @{ Name = "OBS Studio";         Id = "OBSProject.OBSStudio";       Desc = "Record your screen or stream online." }
     )
     "Everyday Tools" = @(
         @{ Name = "7-Zip";              Id = "7zip.7zip";                  Desc = "Open zip files and compress your own." }
         @{ Name = "Adobe Acrobat Reader"; Id = "Adobe.Acrobat.Reader.64-bit"; Desc = "Open and read PDF files." }
         @{ Name = "PowerToys";          Id = "Microsoft.PowerToys";        Desc = "Handy extra tools made by Microsoft." }
         @{ Name = "Notepad++";          Id = "Notepad++.Notepad++";        Desc = "A simple, powerful text editor." }
-        @{ Name = "ShareX";             Id = "ShareX.ShareX";              Desc = "Take and save screenshots easily." }
     )
     "Developer Tools" = @(
         @{ Name = "Visual Studio Code"; Id = "Microsoft.VisualStudioCode"; Desc = "Popular code editor for programmers." }
         @{ Name = "Git";                Id = "Git.Git";                    Desc = "Tool for tracking changes in code projects." }
         @{ Name = "Python";             Id = "Python.Python.3.12";        Desc = "Programming language, great for beginners." }
-        @{ Name = "Node.js";            Id = "OpenJS.NodeJS.LTS";          Desc = "Runs JavaScript outside of a web browser." }
-        @{ Name = "Docker Desktop";     Id = "Docker.DockerDesktop";       Desc = "Run apps in isolated containers." }
     )
     "Security and Privacy" = @(
         @{ Name = "Malwarebytes";       Id = "Malwarebytes.Malwarebytes"; Desc = "Scans and removes malware." }
@@ -189,40 +183,6 @@ $CleanupItems = @(
 )
 
 # ---------------------------------------------------------------------------
-#  DIAGNOSTIC TOOLS - heavier one-off jobs, run individually with their own
-#  button since they take longer, print their own output, or need a restart.
-# ---------------------------------------------------------------------------
-$DiagnosticTools = @(
-    @{ Name = "Open Disk Cleanup Tool"; Desc = "Opens Windows' built-in Disk Cleanup window so you can pick what to remove.";
-       Confirm = $false;
-       Action = { Start-Process cleanmgr -ArgumentList "/d $env:SystemDrive" } }
-
-    @{ Name = "Scan and Repair System Files (SFC)"; Desc = "Checks Windows system files for corruption and repairs them. Takes several minutes.";
-       Confirm = $false;
-       Action = { Start-Process powershell -ArgumentList "-NoExit","-Command","sfc /scannow" -Verb RunAs } }
-
-    @{ Name = "Check Disk for Errors (restart required)"; Desc = "Schedules a disk error check on your next restart. Your PC will restart to run it - save your work first!";
-       Confirm = $true;
-       Action = { Start-Process powershell -ArgumentList "-NoExit","-Command","chkdsk C: /f /r" -Verb RunAs } }
-
-    @{ Name = "Show Startup Programs"; Desc = "Lists the apps that automatically start when Windows boots up.";
-       Confirm = $false;
-       Action = {
-            $items = Get-CimInstance Win32_StartupCommand | Select-Object Name, Command, Location
-            $text = ($items | Format-Table -AutoSize | Out-String)
-            [System.Windows.MessageBox]::Show($text, "Startup Programs")
-       } }
-
-    @{ Name = "Defragment Drive (HDD only - skip for SSD)"; Desc = "Reorganizes files on a spinning hard drive for faster access. Do NOT run this on an SSD.";
-       Confirm = $true;
-       Action = { Start-Process powershell -ArgumentList "-NoExit","-Command","defrag C: /O" -Verb RunAs } }
-
-    @{ Name = "Clean Up Windows Component Store"; Desc = "Removes old, unneeded versions of system files left behind by updates. Frees disk space.";
-       Confirm = $false;
-       Action = { Start-Process Dism.exe -ArgumentList "/online","/Cleanup-Image","/StartComponentCleanup" -Verb RunAs -Wait } }
-)
-
-# ---------------------------------------------------------------------------
 #  WPF LAYOUT - big fonts, high contrast, simple language, tooltips everywhere
 # ---------------------------------------------------------------------------
 [xml]$Xaml = @"
@@ -241,7 +201,7 @@ $DiagnosticTools = @(
         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
             <StackPanel>
                 <TextBlock Text="Owais Humayun" FontSize="28" FontWeight="Bold" Foreground="White"/>
-                <TextBlock Text="Simple. Safe. Free for everyone - kids to grandparents." FontSize="14" Foreground="#f97316"/>
+                <TextBlock Text="Simple. Safe. Free" FontSize="14" Foreground="#f97316"/>
             </StackPanel>
         </StackPanel>
 
@@ -262,40 +222,27 @@ $DiagnosticTools = @(
                         <TextBlock Text="Quick Cleanup (safe, reversible - Windows rebuilds all of this automatically)"
                                    FontSize="19" FontWeight="Bold" Foreground="#4ade80" Margin="0,4,0,6" TextWrapping="Wrap"/>
                         <StackPanel Name="CleanupPanel"/>
-                        <Button Name="BtnRunCleanup" Content="Run Selected Cleanup" Padding="14,8" Margin="0,10,0,20"
+                        <Button Name="BtnRunCleanup" Content="Run" Padding="14,8" Margin="0,10,0,20"
                                 FontSize="16" FontWeight="Bold" HorizontalAlignment="Left"
                                 ToolTip="Runs every cleanup item you've ticked above."/>
-
-                        <TextBlock Text="Deeper Repair Tools (run one at a time, each explains itself)"
-                                   FontSize="19" FontWeight="Bold" Foreground="#fb923c" Margin="0,4,0,6" TextWrapping="Wrap"/>
-                        <StackPanel Name="DiagnosticsPanel"/>
                     </StackPanel>
                 </ScrollViewer>
-            </TabItem>
-            <TabItem Header="Updates">
-                <StackPanel Margin="20">
-                    <TextBlock Text="Windows sometimes needs a break from installing updates while you finish something important."
-                               TextWrapping="Wrap" Foreground="White" Margin="0,0,0,15" FontSize="16"/>
-                    <Button Name="BtnDisableUpdates" Content="Pause Updates for 35 Days" Margin="0,6" Padding="12" FontSize="16"
-                            ToolTip="Windows will not install new updates for 35 days."/>
-                    <Button Name="BtnEnableUpdates" Content="Turn Updates Back On" Margin="0,6" Padding="12" FontSize="16"
-                            ToolTip="Restores normal automatic updates. Do this once you're ready!"/>
-                </StackPanel>
             </TabItem>
             <TabItem Header="About">
                 <StackPanel Margin="20">
                     <TextBlock Text="Owais Humayun" FontSize="22" FontWeight="Bold" Foreground="White"/>
                     <TextBlock Text="Free and open-source, forever." Foreground="White" Margin="0,10,0,0" FontSize="16" TextWrapping="Wrap"/>
+                    <TextBlock Text="This open source tool is designed by Owais Humayun - open tool for everyone." Foreground="White" Margin="0,10,0,0" FontSize="16" TextWrapping="Wrap"/>
                     <TextBlock Text="This tool only installs apps through winget (Microsoft's official installer) and only changes settings you choose. A restore point is made automatically, so you can always undo everything." Foreground="#cbd5e1" Margin="0,15,0,0" FontSize="15" TextWrapping="Wrap"/>
                 </StackPanel>
             </TabItem>
         </TabControl>
 
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
-            <Button Name="BtnApply" Content="Apply Everything I Checked" Padding="16,10" Margin="6" FontSize="17" FontWeight="Bold"
+            <Button Name="BtnApply" Content="Apply" Padding="16,10" Margin="6" FontSize="17" FontWeight="Bold"
                     ToolTip="Installs the apps and applies the tweaks you ticked."/>
-            <Button Name="BtnRestorePoint" Content="Make a Safety Backup Point" Padding="16,10" Margin="6" FontSize="17"
-                    ToolTip="Creates a Windows Restore Point so you can undo changes later."/>
+            <Button Name="BtnRestorePoint" Content="Cancel" Padding="16,10" Margin="6" FontSize="17"
+                    ToolTip="Closes without applying anything."/>
         </StackPanel>
     </Grid>
 </Window>
@@ -324,11 +271,8 @@ try {
 $AppsPanel        = $Window.FindName("AppsPanel")
 $TweaksPanel      = $Window.FindName("TweaksPanel")
 $CleanupPanel     = $Window.FindName("CleanupPanel")
-$DiagnosticsPanel = $Window.FindName("DiagnosticsPanel")
 $BtnApply         = $Window.FindName("BtnApply")
 $BtnRestore       = $Window.FindName("BtnRestorePoint")
-$BtnPause         = $Window.FindName("BtnDisableUpdates")
-$BtnResume        = $Window.FindName("BtnEnableUpdates")
 $BtnRunCleanup    = $Window.FindName("BtnRunCleanup")
 
 # --- Populate Apps, grouped by category with big friendly headers ---
@@ -358,7 +302,7 @@ foreach ($category in $AppCategories.Keys) {
 $TweakCheckboxes = @{}
 foreach ($tier in @("Safe", "Advanced")) {
     $header = New-Object System.Windows.Controls.TextBlock
-    $header.Text = if ($tier -eq "Safe") { "Recommended for Everyone" } else { "Advanced (know what you're doing)" }
+    $header.Text = if ($tier -eq "Safe") { "Standard" } else { "Advanced" }
     $header.FontSize = 19
     $header.FontWeight = "Bold"
     $header.Foreground = if ($tier -eq "Safe") { "#4ade80" } else { "#fb923c" }
@@ -390,47 +334,6 @@ foreach ($item in $CleanupItems) {
     $CleanupCheckboxes[$item.Name] = $cb
 }
 
-# --- Populate Diagnostic tool buttons (one-off actions, not checkboxes) ---
-foreach ($tool in $DiagnosticTools) {
-    $panel = New-Object System.Windows.Controls.StackPanel
-    $panel.Orientation = "Horizontal"
-    $panel.Margin = "0,6,0,6"
-
-    $btn = New-Object System.Windows.Controls.Button
-    $btn.Content = $tool.Name
-    $btn.Padding = "10,6"
-    $btn.FontSize = 15
-    $btn.ToolTip = $tool.Desc
-    $btn.Tag = $tool
-
-    $btn.Add_Click({
-        param($sender, $e)
-        $t = $sender.Tag
-        $proceed = $true
-        if ($t.Confirm) {
-            $result = [System.Windows.MessageBox]::Show("$($t.Desc)`n`nDo you want to continue?", "Please Confirm", "YesNo", "Warning")
-            $proceed = ($result -eq "Yes")
-        }
-        if ($proceed) {
-            Write-Host "[OwaisHumayun] Running: $($t.Name)" -ForegroundColor Cyan
-            & $t.Action
-        }
-    })
-
-    $desc = New-Object System.Windows.Controls.TextBlock
-    $desc.Text = $tool.Desc
-    $desc.Foreground = "#cbd5e1"
-    $desc.FontSize = 13
-    $desc.VerticalAlignment = "Center"
-    $desc.Margin = "12,0,0,0"
-    $desc.TextWrapping = "Wrap"
-    $desc.MaxWidth = 550
-
-    $panel.Children.Add($btn) | Out-Null
-    $panel.Children.Add($desc) | Out-Null
-    $DiagnosticsPanel.Children.Add($panel) | Out-Null
-}
-
 $BtnRunCleanup.Add_Click({
     New-SafetyRestorePoint
     foreach ($item in $CleanupItems) {
@@ -444,8 +347,7 @@ $BtnRunCleanup.Add_Click({
 
 # --- Button actions ---
 $BtnRestore.Add_Click({
-    New-SafetyRestorePoint
-    [System.Windows.MessageBox]::Show("A safety backup point was created. If anything goes wrong, you can restore your PC to this moment.", "Owais Humayun")
+    $Window.Close()
 })
 
 $BtnApply.Add_Click({
@@ -468,18 +370,6 @@ $BtnApply.Add_Click({
     }
 
     [System.Windows.MessageBox]::Show("All done! Everything you checked has been installed or applied.", "Owais Humayun")
-})
-
-$BtnPause.Add_Click({
-    $date = (Get-Date).AddDays(35).ToString("yyyy-MM-dd")
-    New-Item -Path "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" -Force | Out-Null
-    Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" -Name "PauseUpdatesExpiryTime" -Value $date -Force
-    [System.Windows.MessageBox]::Show("Updates are paused until $date. Don't forget to turn them back on!", "Owais Humayun")
-})
-
-$BtnResume.Add_Click({
-    Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" -Name "PauseUpdatesExpiryTime" -ErrorAction SilentlyContinue
-    [System.Windows.MessageBox]::Show("Updates are back to normal. Your PC will stay up to date.", "Owais Humayun")
 })
 
 $Window.ShowDialog() | Out-Null
