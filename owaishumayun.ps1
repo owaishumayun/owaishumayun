@@ -207,10 +207,10 @@ $CleanupItems = @(
                     <StackPanel Name="TweaksPanel" Margin="12"/>
                 </ScrollViewer>
             </TabItem>
-            <TabItem Header="Cleanup">
+            <TabItem Header="Clean-Up">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="12">
-                        <TextBlock Text="Quick Cleanup"
+                        <TextBlock Text="Quick Clean-Up"
                                    FontSize="19" FontWeight="Bold" Foreground="#4ade80" Margin="0,4,0,6" TextWrapping="Wrap"/>
                         <StackPanel Name="CleanupPanel"/>
                         <Button Name="BtnRunCleanup" Content="Run" Padding="14,8" Margin="0,10,0,20"
