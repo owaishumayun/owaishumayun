@@ -323,7 +323,7 @@ $CleanupItems = @(
             <TabItem Header="About">
                 <StackPanel Margin="20">
                     <TextBlock Text="Owais Humayun" FontSize="22" FontWeight="Bold" Foreground="White"/>
-                    <TextBlock Text="Built with care, shared with everyone - free and open-source, forever." Foreground="White" Margin="0,10,0,0" FontSize="16" TextWrapping="Wrap"/>
+                    <TextBlock Text="Built with care, shared with everyone - free and open-source." Foreground="White" Margin="0,10,0,0" FontSize="16" TextWrapping="Wrap"/>
                     <TextBlock Text="This open source tool is designed by Owais Humayun." Foreground="White" Margin="0,10,0,0" FontSize="16" TextWrapping="Wrap"/>
                     <TextBlock Text="This tool only installs apps through winget (Microsoft's official installer) and only changes settings you choose." Foreground="#cbd5e1" Margin="0,15,0,0" FontSize="15" TextWrapping="Wrap"/>
                 </StackPanel>
