@@ -110,6 +110,29 @@ $Tweaks = @(
        Desc = "Makes right-click menus pop open instantly instead of with a slight delay.";
        Apply = { Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name "MenuShowDelay" -Value "0" -Force -ErrorAction SilentlyContinue } }
 
+    @{ Name = "Restore the Classic Right-Click Menu"; Tier = "Safe";
+       Desc = "Brings back the full right-click menu from before Windows 11's simplified version.";
+       Apply = {
+            New-Item -Path "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32" -Force | Out-Null
+            Set-ItemProperty -Path "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32" -Name "(Default)" -Value "" -Force
+       } }
+
+    @{ Name = "Show Seconds in the Taskbar Clock"; Tier = "Safe";
+       Desc = "Adds seconds to the time shown in your taskbar clock.";
+       Apply = { Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "ShowSecondsInSystemClock" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue } }
+
+    @{ Name = "Turn Off the Widgets Icon on the Taskbar"; Tier = "Safe";
+       Desc = "Removes the Widgets/news feed icon so the taskbar stays clutter-free.";
+       Apply = { Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "TaskbarDa" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue } }
+
+    @{ Name = "Show Hidden Files and Folders"; Tier = "Safe";
+       Desc = "Lets File Explorer show files that are normally hidden from view.";
+       Apply = { Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "Hidden" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue } }
+
+    @{ Name = "Left-Align Taskbar Icons (Classic Style)"; Tier = "Safe";
+       Desc = "Moves taskbar icons back to the left, like older versions of Windows.";
+       Apply = { Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "TaskbarAl" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue } }
+
     # --- Advanced / Power Users ---
     @{ Name = "Hide the Search Icon on the Taskbar"; Tier = "Advanced";
        Desc = "Removes the search magnifying glass from the taskbar to reduce clutter.";
@@ -134,6 +157,43 @@ $Tweaks = @(
     @{ Name = "Reduce Game Bar Nag Prompts"; Tier = "Advanced";
        Desc = "Prevents certain pre-installed prompts from nagging you to enable extra features.";
        Apply = { Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\GameDVR" -Name "AppCaptureEnabled" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue } }
+
+    @{ Name = "Disable Windows Recall"; Tier = "Advanced";
+       Desc = "Turns off Recall, the feature that takes periodic screenshots of your activity.";
+       Apply = {
+            New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsAI" -Force | Out-Null
+            Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsAI" -Name "DisableAIDataAnalysis" -Value 1 -Type DWord -Force
+       } }
+
+    @{ Name = "Disable Copilot"; Tier = "Advanced";
+       Desc = "Removes the Windows Copilot AI assistant from your taskbar and system.";
+       Apply = {
+            New-Item -Path "HKCU:\SOFTWARE\Policies\Microsoft\Windows\WindowsCopilot" -Force | Out-Null
+            Set-ItemProperty -Path "HKCU:\SOFTWARE\Policies\Microsoft\Windows\WindowsCopilot" -Name "TurnOffWindowsCopilot" -Value 1 -Type DWord -Force
+       } }
+
+    @{ Name = "Disable Delivery Optimization (P2P Updates)"; Tier = "Advanced";
+       Desc = "Stops Windows from uploading update files to other PCs on the internet.";
+       Apply = {
+            New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DeliveryOptimization" -Force | Out-Null
+            Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DeliveryOptimization" -Name "DODownloadMode" -Value 0 -Type DWord -Force
+       } }
+
+    @{ Name = "Disable Advertising ID"; Tier = "Advanced";
+       Desc = "Stops apps from using a unique ID to show you personalized ads.";
+       Apply = { Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\AdvertisingInfo" -Name "Enabled" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue } }
+
+    @{ Name = "Disable Activity History and Timeline"; Tier = "Advanced";
+       Desc = "Stops Windows from tracking and syncing your recent activity across devices.";
+       Apply = {
+            Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -Name "EnableActivityFeed" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+            Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -Name "PublishUserActivities" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+            Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -Name "UploadUserActivities" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+       } }
+
+    @{ Name = "Switch to High Performance Power Plan"; Tier = "Advanced";
+       Desc = "Prioritizes speed over battery savings - best for desktops, less ideal for laptops on battery.";
+       Apply = { Start-Process powercfg -ArgumentList "/s 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c" -Wait -NoNewWindow } }
 )
 
 # ---------------------------------------------------------------------------
@@ -166,7 +226,7 @@ $CleanupItems = @(
     @{ Name = "Clear Thumbnail Cache"; Desc = "Clears cached picture previews - Windows regenerates them next time you browse folders.";
        Apply = { Remove-Item -Path "$env:LOCALAPPDATA\Microsoft\Windows\Explorer\thumbcache_*.db" -Force -ErrorAction SilentlyContinue } }
 
-    @{ Name = "Clear Internet Cache"; Desc = "Clears cached web files stored by Windows components.";
+    @{ Name = "Clear Browser/System Internet Cache"; Desc = "Clears cached web files stored by Windows components.";
        Apply = { Remove-Item -Path "$env:LOCALAPPDATA\Microsoft\Windows\INetCache\*" -Recurse -Force -ErrorAction SilentlyContinue } }
 
     @{ Name = "Flush DNS Cache"; Desc = "Clears stored website addresses - can fix websites failing to load."; 
@@ -222,8 +282,9 @@ $CleanupItems = @(
             <TabItem Header="About">
                 <StackPanel Margin="20">
                     <TextBlock Text="Owais Humayun" FontSize="22" FontWeight="Bold" Foreground="White"/>
-                    <TextBlock Text="Just a tool built to help — free, open, and yours to keep." Foreground="White" Margin="0,10,0,0" FontSize="16" TextWrapping="Wrap"/>
+                    <TextBlock Text="Built with care, shared with everyone - free and open-source, forever." Foreground="White" Margin="0,10,0,0" FontSize="16" TextWrapping="Wrap"/>
                     <TextBlock Text="This open source tool is designed by Owais Humayun." Foreground="White" Margin="0,10,0,0" FontSize="16" TextWrapping="Wrap"/>
+                    <TextBlock Text="This tool only installs apps through winget (Microsoft's official installer) and only changes settings you choose." Foreground="#cbd5e1" Margin="0,15,0,0" FontSize="15" TextWrapping="Wrap"/>
                 </StackPanel>
             </TabItem>
         </TabControl>
