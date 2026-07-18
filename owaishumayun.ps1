@@ -194,6 +194,14 @@ $Tweaks = @(
     @{ Name = "Switch to High Performance Power Plan"; Tier = "Advanced";
        Desc = "Prioritizes speed over battery savings - best for desktops, less ideal for laptops on battery.";
        Apply = { Start-Process powercfg -ArgumentList "/s 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c" -Wait -NoNewWindow } }
+
+    @{ Name = "Reset Network Adapters (Release and Renew IP)"; Tier = "Advanced";
+       Desc = "Releases and renews your IP address and flushes DNS - can fix internet connection problems. Briefly disconnects you from the network.";
+       Apply = {
+            Start-Process ipconfig -ArgumentList "/release" -Wait -NoNewWindow
+            Start-Process ipconfig -ArgumentList "/renew" -Wait -NoNewWindow
+            Start-Process ipconfig -ArgumentList "/flushdns" -Wait -NoNewWindow
+       } }
 )
 
 # ---------------------------------------------------------------------------
@@ -231,6 +239,39 @@ $CleanupItems = @(
 
     @{ Name = "Flush DNS Cache"; Desc = "Clears stored website addresses - can fix websites failing to load."; 
        Apply = { Start-Process ipconfig -ArgumentList "/flushdns" -Wait -NoNewWindow } }
+
+    @{ Name = "Clear Clipboard"; Desc = "Empties whatever text or image is currently copied to your clipboard.";
+       Apply = { Set-Clipboard -Value $null -ErrorAction SilentlyContinue } }
+
+    @{ Name = "Clear Jump Lists"; Desc = "Clears the recent-file shortcuts that show when you right-click a taskbar icon.";
+       Apply = {
+            Remove-Item -Path "$env:APPDATA\Microsoft\Windows\Recent\AutomaticDestinations\*" -Force -ErrorAction SilentlyContinue
+            Remove-Item -Path "$env:APPDATA\Microsoft\Windows\Recent\CustomDestinations\*" -Force -ErrorAction SilentlyContinue
+       } }
+
+    @{ Name = "Clear Windows Error Reporting Files"; Desc = "Deletes old crash and error report files Windows has saved up over time.";
+       Apply = { Remove-Item -Path "$env:ProgramData\Microsoft\Windows\WER\*" -Recurse -Force -ErrorAction SilentlyContinue } }
+
+    @{ Name = "Clear Memory Dump Files"; Desc = "Deletes crash-dump files left behind after a system error - these can be several GB in size.";
+       Apply = {
+            Remove-Item -Path "$env:SystemRoot\Minidump\*" -Recurse -Force -ErrorAction SilentlyContinue
+            Remove-Item -Path "$env:SystemRoot\MEMORY.DMP" -Force -ErrorAction SilentlyContinue
+       } }
+
+    @{ Name = "Rebuild Icon Cache"; Desc = "Fixes broken, blank, or wrong-looking icons by rebuilding Windows' icon cache.";
+       Apply = {
+            Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+            Remove-Item -Path "$env:LOCALAPPDATA\IconCache.db" -Force -ErrorAction SilentlyContinue
+            Remove-Item -Path "$env:LOCALAPPDATA\Microsoft\Windows\Explorer\iconcache_*.db" -Force -ErrorAction SilentlyContinue
+            Start-Process explorer
+       } }
+
+    @{ Name = "Rebuild Font Cache"; Desc = "Fixes fonts that look wrong or fail to display properly by refreshing the font cache.";
+       Apply = {
+            Stop-Service -Name FontCache -Force -ErrorAction SilentlyContinue
+            Remove-Item -Path "$env:LOCALAPPDATA\FontCache*" -Force -ErrorAction SilentlyContinue
+            Start-Service -Name FontCache -ErrorAction SilentlyContinue
+       } }
 )
 
 # ---------------------------------------------------------------------------
