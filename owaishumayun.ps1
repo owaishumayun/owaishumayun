@@ -14,9 +14,11 @@
 # ---------------------------------------------------------------------------
 if ([System.Threading.Thread]::CurrentThread.ApartmentState -ne 'STA') {
     Write-Host "[OwaisHumayun] Restarting in the correct mode, one moment..." -ForegroundColor Yellow
+    # ?$(Get-Random) defeats raw.githubusercontent.com's CDN cache so the relaunch
+    # always fetches the latest push instead of a stale cached copy.
     Start-Process powershell.exe -ArgumentList @(
         "-NoProfile", "-ExecutionPolicy", "Bypass", "-STA", "-Command",
-        "irm 'https://raw.githubusercontent.com/owaishumayun/owaishumayun/main/owaishumayun.ps1' | iex"
+        "irm 'https://raw.githubusercontent.com/owaishumayun/owaishumayun/main/owaishumayun.ps1?$(Get-Random)' | iex"
     )
     exit
 }

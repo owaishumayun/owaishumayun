@@ -13,10 +13,10 @@ Inspired by the "one-command Windows toolbox" style popularized by tools like Ch
 Open **Terminal (Admin)** or **PowerShell (Admin)** and run:
 
 ```powershell
-irm "https://raw.githubusercontent.com/owaishumayun/owaishumayun/main/owaishumayun.ps1" | iex
+irm "https://raw.githubusercontent.com/owaishumayun/owaishumayun/main/owaishumayun.ps1?$(Get-Random)" | iex
 ```
 
-> Once you've created the repo on GitHub, replace the URL above with your actual raw file link (see **Publishing** below), and update it here too.
+> The trailing `?$(Get-Random)` isn't a typo - GitHub's raw-file CDN caches each exact URL for a few minutes per edge location, so right after an update some users can briefly fetch a stale copy. Appending a random query string forces every run to bypass the cache and pull the latest file straight from GitHub. Once you've created the repo on GitHub, replace the URL above with your actual raw file link (see **Publishing** below), and update it here too.
 
 ## ✨ Features
 
