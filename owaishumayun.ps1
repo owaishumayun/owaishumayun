@@ -351,7 +351,7 @@ $CleanupItems = @(
                                     <Path x:Name="CheckMark" Data="M3,8 L7,12 L15,3" Stroke="White" StrokeThickness="2.2"
                                           StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Visibility="Collapsed"/>
                                 </Border>
-                                <ContentPresenter Margin="10,0,0,0" VerticalAlignment="Center" TextBlock.TextWrapping="Wrap"/>
+                                <ContentPresenter Margin="10,0,0,0" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Border>
                         <ControlTemplate.Triggers>
@@ -770,13 +770,22 @@ function Update-SelectionCount {
     $CountText.Text = "$count selected"
 }
 
+# --- Builds a wrapping text label for a checkbox's Content (a plain string won't wrap) ---
+function New-CheckboxLabel {
+    param([string]$Text)
+    $tb = New-Object System.Windows.Controls.TextBlock
+    $tb.Text = $Text
+    $tb.TextWrapping = "Wrap"
+    return $tb
+}
+
 # --- Populate Apps, grouped by category with card-style headers ---
 $AppCheckboxes = @{}
 foreach ($category in $AppCategories.Keys) {
     $card = New-Card -HeaderText $category -HeaderColor "#f97316"
     foreach ($app in $AppCategories[$category]) {
         $cb = New-Object System.Windows.Controls.CheckBox
-        $cb.Content = "$($app.Name)  -  $($app.Desc)"
+        $cb.Content = New-CheckboxLabel "$($app.Name)  -  $($app.Desc)"
         $cb.ToolTip = $app.Desc
         $cb.Add_Checked({ Update-SelectionCount -Checkboxes $AppCheckboxes -CountText $TxtAppsSelectedCount })
         $cb.Add_Unchecked({ Update-SelectionCount -Checkboxes $AppCheckboxes -CountText $TxtAppsSelectedCount })
@@ -794,7 +803,7 @@ foreach ($tier in @("Safe", "Advanced")) {
     $card = New-Card -HeaderText $tierLabel -HeaderColor $tierColor
     foreach ($tweak in ($Tweaks | Where-Object { $_.Tier -eq $tier })) {
         $cb = New-Object System.Windows.Controls.CheckBox
-        $cb.Content = "$($tweak.Name)  -  $($tweak.Desc)"
+        $cb.Content = New-CheckboxLabel "$($tweak.Name)  -  $($tweak.Desc)"
         $cb.ToolTip = $tweak.Desc
         $cb.Add_Checked({ Update-SelectionCount -Checkboxes $TweakCheckboxes -CountText $TxtTweaksSelectedCount })
         $cb.Add_Unchecked({ Update-SelectionCount -Checkboxes $TweakCheckboxes -CountText $TxtTweaksSelectedCount })
@@ -808,7 +817,7 @@ foreach ($tier in @("Safe", "Advanced")) {
 $CleanupCheckboxes = @{}
 foreach ($item in $CleanupItems) {
     $cb = New-Object System.Windows.Controls.CheckBox
-    $cb.Content = "$($item.Name)  -  $($item.Desc)"
+    $cb.Content = New-CheckboxLabel "$($item.Name)  -  $($item.Desc)"
     $cb.ToolTip = $item.Desc
     $cb.Margin = "10,4,0,4"
     $cb.Add_Checked({ Update-SelectionCount -Checkboxes $CleanupCheckboxes -CountText $TxtCleanupSelectedCount })
