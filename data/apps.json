@@ -1,0 +1,48 @@
+{
+  "categories": [
+    {
+      "id": "web-browsers",
+      "name": "Web Browsers",
+      "apps": [
+        { "id": "google-chrome", "name": "Google Chrome", "wingetId": "Google.Chrome", "desc": "A fast, popular web browser.", "icon": null },
+        { "id": "mozilla-firefox", "name": "Mozilla Firefox", "wingetId": "Mozilla.Firefox", "desc": "A privacy-friendly web browser.", "icon": null },
+        { "id": "brave-browser", "name": "Brave Browser", "wingetId": "Brave.Brave", "desc": "A browser that blocks ads and trackers automatically.", "icon": null },
+        { "id": "microsoft-edge", "name": "Microsoft Edge", "wingetId": "Microsoft.Edge", "desc": "Microsoft's built-in browser, kept up to date.", "icon": null }
+      ]
+    },
+    {
+      "id": "chat-and-video-calls",
+      "name": "Chat and Video Calls",
+      "apps": [
+        { "id": "zoom", "name": "Zoom", "wingetId": "Zoom.Zoom", "desc": "Video calls with family, friends, or work.", "icon": null },
+        { "id": "whatsapp", "name": "WhatsApp", "wingetId": "WhatsApp.WhatsApp", "desc": "Chat and video call on your computer.", "icon": null }
+      ]
+    },
+    {
+      "id": "music-and-video",
+      "name": "Music and Video",
+      "apps": [
+        { "id": "vlc-media-player", "name": "VLC Media Player", "wingetId": "VideoLAN.VLC", "desc": "Plays almost any video or audio file.", "icon": null },
+        { "id": "spotify", "name": "Spotify", "wingetId": "Spotify.Spotify", "desc": "Stream and listen to music.", "icon": null }
+      ]
+    },
+    {
+      "id": "everyday-tools",
+      "name": "Everyday Tools",
+      "apps": [
+        { "id": "7-zip", "name": "7-Zip", "wingetId": "7zip.7zip", "desc": "Open zip files and compress your own.", "icon": null },
+        { "id": "adobe-acrobat-reader", "name": "Adobe Acrobat Reader", "wingetId": "Adobe.Acrobat.Reader.64-bit", "desc": "Open and read PDF files.", "icon": null },
+        { "id": "notepad-plusplus", "name": "Notepad++", "wingetId": "Notepad++.Notepad++", "desc": "A simple, powerful text editor.", "icon": null }
+      ]
+    },
+    {
+      "id": "developer-tools",
+      "name": "Developer Tools",
+      "apps": [
+        { "id": "visual-studio-code", "name": "Visual Studio Code", "wingetId": "Microsoft.VisualStudioCode", "desc": "Popular code editor for programmers.", "icon": null },
+        { "id": "git", "name": "Git", "wingetId": "Git.Git", "desc": "Tool for tracking changes in code projects.", "icon": null },
+        { "id": "python", "name": "Python", "wingetId": "Python.Python.3.12", "desc": "Programming language, great for beginners.", "icon": null }
+      ]
+    }
+  ]
+}

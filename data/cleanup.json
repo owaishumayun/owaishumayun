@@ -1,0 +1,148 @@
+{
+  "cleanupItems": [
+    {
+      "id": "clear-user-temp",
+      "name": "Clear Your Personal Temp Files",
+      "desc": "Deletes leftover temporary files in your user folder.",
+      "kind": "storage",
+      "steps": [
+        { "type": "deletePath", "path": "%TEMP%", "pattern": "*", "recursive": true }
+      ]
+    },
+    {
+      "id": "clear-windows-temp",
+      "name": "Clear Windows Temp Folder",
+      "desc": "Deletes temporary files Windows itself created.",
+      "kind": "storage",
+      "steps": [
+        { "type": "deletePath", "path": "%WINDIR%\\Temp", "pattern": "*", "recursive": true }
+      ]
+    },
+    {
+      "id": "clear-prefetch",
+      "name": "Clear Prefetch Files",
+      "desc": "Safe to delete - Windows quietly rebuilds these to help apps start faster.",
+      "kind": "storage",
+      "steps": [
+        { "type": "deletePath", "path": "%WINDIR%\\Prefetch", "pattern": "*", "recursive": true }
+      ]
+    },
+    {
+      "id": "clear-recent-files",
+      "name": "Clear Recent Files List",
+      "desc": "Clears the list of recently opened files shown in File Explorer.",
+      "kind": "storage",
+      "steps": [
+        { "type": "deletePath", "path": "%APPDATA%\\Microsoft\\Windows\\Recent", "pattern": "*", "recursive": true }
+      ]
+    },
+    {
+      "id": "empty-recycle-bin",
+      "name": "Empty Recycle Bin",
+      "desc": "Permanently deletes everything currently in the Recycle Bin.",
+      "kind": "storage",
+      "steps": [
+        { "type": "recycleBinEmpty" }
+      ]
+    },
+    {
+      "id": "clear-windows-update-leftovers",
+      "name": "Clear Windows Update Leftovers",
+      "desc": "Frees up a lot of space by deleting old, already-installed update files.",
+      "kind": "storage",
+      "steps": [
+        { "type": "serviceStop", "name": "wuauserv" },
+        { "type": "deletePath", "path": "%WINDIR%\\SoftwareDistribution\\Download", "pattern": "*", "recursive": true },
+        { "type": "serviceStart", "name": "wuauserv" }
+      ]
+    },
+    {
+      "id": "clear-thumbnail-cache",
+      "name": "Clear Thumbnail Cache",
+      "desc": "Clears cached picture previews - Windows regenerates them next time you browse folders.",
+      "kind": "storage",
+      "steps": [
+        { "type": "deletePath", "path": "%LOCALAPPDATA%\\Microsoft\\Windows\\Explorer", "pattern": "thumbcache_*.db", "recursive": false }
+      ]
+    },
+    {
+      "id": "clear-internet-cache",
+      "name": "Clear Internet Cache",
+      "desc": "Clears cached web files stored by Windows components.",
+      "kind": "storage",
+      "steps": [
+        { "type": "deletePath", "path": "%LOCALAPPDATA%\\Microsoft\\Windows\\INetCache", "pattern": "*", "recursive": true }
+      ]
+    },
+    {
+      "id": "flush-dns-cache",
+      "name": "Flush DNS Cache",
+      "desc": "Clears stored website addresses - can fix websites failing to load.",
+      "kind": "action",
+      "steps": [
+        { "type": "process", "exe": "ipconfig", "args": ["/flushdns"] }
+      ]
+    },
+    {
+      "id": "clear-clipboard",
+      "name": "Clear Clipboard",
+      "desc": "Empties whatever text or image is currently copied to your clipboard.",
+      "kind": "action",
+      "steps": [
+        { "type": "clipboardClear" }
+      ]
+    },
+    {
+      "id": "clear-jump-lists",
+      "name": "Clear Jump Lists",
+      "desc": "Clears the recent-file shortcuts that show when you right-click a taskbar icon.",
+      "kind": "storage",
+      "steps": [
+        { "type": "deletePath", "path": "%APPDATA%\\Microsoft\\Windows\\Recent\\AutomaticDestinations", "pattern": "*", "recursive": false },
+        { "type": "deletePath", "path": "%APPDATA%\\Microsoft\\Windows\\Recent\\CustomDestinations", "pattern": "*", "recursive": false }
+      ]
+    },
+    {
+      "id": "clear-error-reporting-files",
+      "name": "Clear Windows Error Reporting Files",
+      "desc": "Deletes old crash and error report files Windows has saved up over time.",
+      "kind": "storage",
+      "steps": [
+        { "type": "deletePath", "path": "%PROGRAMDATA%\\Microsoft\\Windows\\WER", "pattern": "*", "recursive": true }
+      ]
+    },
+    {
+      "id": "clear-memory-dumps",
+      "name": "Clear Memory Dump Files",
+      "desc": "Deletes crash-dump files left behind after a system error - these can be several GB in size.",
+      "kind": "storage",
+      "steps": [
+        { "type": "deletePath", "path": "%SYSTEMROOT%\\Minidump", "pattern": "*", "recursive": true },
+        { "type": "deletePath", "path": "%SYSTEMROOT%", "pattern": "MEMORY.DMP", "recursive": false }
+      ]
+    },
+    {
+      "id": "rebuild-icon-cache",
+      "name": "Rebuild Icon Cache",
+      "desc": "Fixes broken, blank, or wrong-looking icons by rebuilding Windows' icon cache.",
+      "kind": "action",
+      "steps": [
+        { "type": "processStop", "name": "explorer" },
+        { "type": "deletePath", "path": "%LOCALAPPDATA%", "pattern": "IconCache.db", "recursive": false },
+        { "type": "deletePath", "path": "%LOCALAPPDATA%\\Microsoft\\Windows\\Explorer", "pattern": "iconcache_*.db", "recursive": false },
+        { "type": "processStart", "exe": "explorer.exe" }
+      ]
+    },
+    {
+      "id": "rebuild-font-cache",
+      "name": "Rebuild Font Cache",
+      "desc": "Fixes fonts that look wrong or fail to display properly by refreshing the font cache.",
+      "kind": "action",
+      "steps": [
+        { "type": "serviceStop", "name": "FontCache" },
+        { "type": "deletePath", "path": "%LOCALAPPDATA%", "pattern": "FontCache*", "recursive": false },
+        { "type": "serviceStart", "name": "FontCache" }
+      ]
+    }
+  ]
+}

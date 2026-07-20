@@ -36,9 +36,23 @@ function New-SafetyRestorePoint {
         Enable-ComputerRestore -Drive "$env:SystemDrive\" -ErrorAction SilentlyContinue
         Checkpoint-Computer -Description "Owais Humayun - Snapshot" -RestorePointType "MODIFY_SETTINGS" -ErrorAction Stop
         Write-Host "[OwaisHumayun] Restore point created. You can undo everything if needed." -ForegroundColor Green
+        return $true
     } catch {
         Write-Host "[OwaisHumayun] Could not create a new restore point (Windows only allows one every 24h). Continuing safely." -ForegroundColor Yellow
+        return $false
     }
+}
+
+# ---------------------------------------------------------------------------
+#  Pumps the WPF dispatcher so a progress bar/label actually repaints while
+#  we're in the middle of a blocking loop (winget/registry calls are
+#  synchronous, so without this the UI would freeze until the loop ends).
+# ---------------------------------------------------------------------------
+function Set-Progress {
+    param($Bar, $PercentText, [double]$Percent)
+    $Bar.Value = $Percent
+    $PercentText.Text = "$([math]::Round($Percent))%"
+    $Bar.Dispatcher.Invoke([Windows.Threading.DispatcherPriority]::Background, [action]{})
 }
 
 # ---------------------------------------------------------------------------
@@ -218,13 +232,13 @@ $CleanupItems = @(
     @{ Name = "Clear Prefetch Files"; Desc = "Safe to delete - Windows quietly rebuilds these to help apps start faster.";
        Apply = { Remove-Item -Path "C:\Windows\Prefetch\*" -Recurse -Force -ErrorAction SilentlyContinue } }
 
-    @{ Name = "Clear Recent Files List"; Desc = "Clears the list of recently opened files shown in File Explorer."; 
+    @{ Name = "Clear Recent Files List"; Desc = "Clears the list of recently opened files shown in File Explorer.";
        Apply = { Remove-Item -Path "$env:APPDATA\Microsoft\Windows\Recent\*" -Recurse -Force -ErrorAction SilentlyContinue } }
 
     @{ Name = "Empty Recycle Bin"; Desc = "Permanently deletes everything currently in the Recycle Bin.";
        Apply = { Clear-RecycleBin -Force -ErrorAction SilentlyContinue } }
 
-    @{ Name = "Clear Windows Update Leftovers"; Desc = "Frees up a lot of space by deleting old, already-installed update files."; 
+    @{ Name = "Clear Windows Update Leftovers"; Desc = "Frees up a lot of space by deleting old, already-installed update files.";
        Apply = {
             Stop-Service -Name wuauserv -Force -ErrorAction SilentlyContinue
             Remove-Item -Path "C:\Windows\SoftwareDistribution\Download\*" -Recurse -Force -ErrorAction SilentlyContinue
@@ -237,7 +251,7 @@ $CleanupItems = @(
     @{ Name = "Clear Internet Cache"; Desc = "Clears cached web files stored by Windows components.";
        Apply = { Remove-Item -Path "$env:LOCALAPPDATA\Microsoft\Windows\INetCache\*" -Recurse -Force -ErrorAction SilentlyContinue } }
 
-    @{ Name = "Flush DNS Cache"; Desc = "Clears stored website addresses - can fix websites failing to load."; 
+    @{ Name = "Flush DNS Cache"; Desc = "Clears stored website addresses - can fix websites failing to load.";
        Apply = { Start-Process ipconfig -ArgumentList "/flushdns" -Wait -NoNewWindow } }
 
     @{ Name = "Clear Clipboard"; Desc = "Empties whatever text or image is currently copied to your clipboard.";
@@ -275,67 +289,359 @@ $CleanupItems = @(
 )
 
 # ---------------------------------------------------------------------------
-#  WPF LAYOUT - big fonts, high contrast, simple language, tooltips everywhere
+#  WPF LAYOUT - modern dark theme: rounded cards, custom buttons/checkboxes/
+#  tabs/scrollbars/progress bars, big fonts, high contrast, plain language.
 # ---------------------------------------------------------------------------
 [xml]$Xaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Owais Humayun"
-        Height="750" Width="950" WindowStartupLocation="CenterScreen"
-        Background="#1e293b" FontSize="16">
-    <Grid Margin="14">
+        Height="800" Width="1000" MinHeight="620" MinWidth="820"
+        WindowStartupLocation="CenterScreen"
+        Background="#0f172a" FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="16"
+        TextOptions.TextFormattingMode="Display" UseLayoutRounding="True" SnapsToDevicePixels="True">
+    <Window.Resources>
+        <SolidColorBrush x:Key="AccentBrush" Color="#f97316"/>
+        <SolidColorBrush x:Key="AccentHoverBrush" Color="#fb923c"/>
+        <SolidColorBrush x:Key="SafeBrush" Color="#4ade80"/>
+        <SolidColorBrush x:Key="AdvancedBrush" Color="#fb923c"/>
+
+        <!-- Cards -->
+        <Style x:Key="TabCardStyle" TargetType="Border">
+            <Setter Property="Background" Value="#16233b"/>
+            <Setter Property="BorderBrush" Value="#243347"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="18"/>
+            <Setter Property="Margin" Value="0,10,0,0"/>
+        </Style>
+        <Style x:Key="CardStyle" TargetType="Border">
+            <Setter Property="Background" Value="#1e293b"/>
+            <Setter Property="BorderBrush" Value="#334155"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="14"/>
+            <Setter Property="Margin" Value="0,0,0,12"/>
+        </Style>
+        <Style x:Key="SectionHeaderStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+        </Style>
+
+        <!-- Checkbox -->
+        <Style TargetType="CheckBox">
+            <Setter Property="Foreground" Value="#f1f5f9"/>
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="8,5,4,5"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Border x:Name="RowBorder" Background="Transparent" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <StackPanel Orientation="Horizontal">
+                                <Border x:Name="Box" Width="20" Height="20" CornerRadius="5"
+                                        BorderBrush="#64748b" BorderThickness="1.5" Background="#0f172a" VerticalAlignment="Center">
+                                    <Path x:Name="CheckMark" Data="M3,8 L7,12 L15,3" Stroke="White" StrokeThickness="2.2"
+                                          StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Visibility="Collapsed"/>
+                                </Border>
+                                <ContentPresenter Margin="10,0,0,0" VerticalAlignment="Center" TextBlock.TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Box" Property="Background" Value="{StaticResource AccentBrush}"/>
+                                <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                                <Setter TargetName="CheckMark" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="RowBorder" Property="Background" Value="#25324a"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Buttons -->
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="Padding" Value="18,11"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bg" Background="{TemplateBinding Background}" CornerRadius="8">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               Margin="{TemplateBinding Padding}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="{StaticResource AccentHoverBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bg" Property="Opacity" Value="0.85"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bg" Property="Background" Value="#475569"/>
+                                <Setter Property="Foreground" Value="#94a3b8"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="SecondaryButtonStyle" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Background" Value="#334155"/>
+        </Style>
+
+        <!-- Progress bar -->
+        <Style TargetType="ProgressBar">
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="Minimum" Value="0"/>
+            <Setter Property="Maximum" Value="100"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ProgressBar">
+                        <Grid>
+                            <Border CornerRadius="13" Background="#1e293b" BorderBrush="#334155" BorderThickness="1"/>
+                            <Border x:Name="PART_Track" CornerRadius="12" Margin="2" ClipToBounds="True">
+                                <Grid HorizontalAlignment="Left">
+                                    <Rectangle x:Name="PART_Indicator" Fill="{StaticResource AccentBrush}"
+                                               HorizontalAlignment="Left" RadiusX="11" RadiusY="11"/>
+                                </Grid>
+                            </Border>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Tabs -->
+        <Style TargetType="TabItem">
+            <Setter Property="Foreground" Value="#94a3b8"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="Bd" Background="Transparent" BorderThickness="0,0,0,3" BorderBrush="Transparent"
+                                Padding="16,10,16,10" Margin="0,0,4,0">
+                            <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Foreground" Value="White"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                                <Setter TargetName="Bd" Property="Background" Value="#16233b"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#1b2a45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="TabControl">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+        </Style>
+
+        <!-- Scrollbars -->
+        <Style TargetType="ScrollBar">
+            <Setter Property="Width" Value="10"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollBar">
+                        <Grid Background="Transparent">
+                            <Track Name="PART_Track" IsDirectionReversed="True">
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Command="ScrollBar.PageUpCommand" Opacity="0"/>
+                                </Track.DecreaseRepeatButton>
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Command="ScrollBar.PageDownCommand" Opacity="0"/>
+                                </Track.IncreaseRepeatButton>
+                                <Track.Thumb>
+                                    <Thumb>
+                                        <Thumb.Template>
+                                            <ControlTemplate TargetType="Thumb">
+                                                <Border CornerRadius="5" Background="#475569" Width="8"/>
+                                            </ControlTemplate>
+                                        </Thumb.Template>
+                                    </Thumb>
+                                </Track.Thumb>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="18">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
-            <StackPanel>
-                <TextBlock Text="Owais Humayun" FontSize="28" FontWeight="Bold" Foreground="White"/>
-                <TextBlock Text="Simple. Safe. Free" FontSize="14" Foreground="#f97316"/>
+        <!-- Header -->
+        <Grid Grid.Row="0" Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Border Grid.Column="0" Width="52" Height="52" CornerRadius="14" VerticalAlignment="Center">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop Color="#f97316" Offset="0"/>
+                        <GradientStop Color="#ea580c" Offset="1"/>
+                    </LinearGradientBrush>
+                </Border.Background>
+                <TextBlock Text="OH" FontSize="20" FontWeight="Bold" Foreground="White"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
+                <TextBlock Text="Owais Humayun" FontSize="26" FontWeight="Bold" Foreground="White"/>
+                <TextBlock Text="Simple. Safe. Free." FontSize="13" Foreground="#94a3b8"/>
             </StackPanel>
-        </StackPanel>
+        </Grid>
 
-        <TabControl Grid.Row="1" Name="MainTabs" Background="#334155" FontSize="17">
+        <TabControl Grid.Row="1" Name="MainTabs">
             <TabItem Header="Install Apps">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Name="AppsPanel" Margin="12"/>
-                </ScrollViewer>
+                <Border Style="{StaticResource TabCardStyle}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
+                            <StackPanel Name="AppsPanel" Margin="2"/>
+                        </ScrollViewer>
+                        <StackPanel Grid.Row="1" Margin="0,14,0,0">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Button Grid.Column="0" Name="BtnInstallApps" Content="Install Selected Apps"
+                                        ToolTip="Installs every app you've ticked above via winget."/>
+                                <Grid Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
+                                    <ProgressBar Name="PbApps"/>
+                                    <TextBlock Name="TxtAppsPercent" Text="0%" Foreground="White" FontWeight="Bold" FontSize="12"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Grid>
+                            </Grid>
+                            <TextBlock Name="TxtAppsStatus" Text="Tick the apps you want, then click Install."
+                                       Foreground="#94a3b8" FontSize="13" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
             </TabItem>
+
             <TabItem Header="Tweaks">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Name="TweaksPanel" Margin="12"/>
-                </ScrollViewer>
+                <Border Style="{StaticResource TabCardStyle}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
+                            <StackPanel Name="TweaksPanel" Margin="2"/>
+                        </ScrollViewer>
+                        <StackPanel Grid.Row="1" Margin="0,14,0,0">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Button Grid.Column="0" Name="BtnApplyTweaks" Content="Apply Selected Tweaks"
+                                        ToolTip="Applies every tweak you've ticked above."/>
+                                <Grid Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
+                                    <ProgressBar Name="PbTweaks"/>
+                                    <TextBlock Name="TxtTweaksPercent" Text="0%" Foreground="White" FontWeight="Bold" FontSize="12"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Grid>
+                            </Grid>
+                            <TextBlock Name="TxtTweaksStatus" Text="Tick the tweaks you want, then click Apply."
+                                       Foreground="#94a3b8" FontSize="13" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
             </TabItem>
+
             <TabItem Header="Clean-Up">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Margin="12">
-                        <TextBlock Text="Quick Clean-Up"
-                                   FontSize="19" FontWeight="Bold" Foreground="#4ade80" Margin="0,4,0,6" TextWrapping="Wrap"/>
-                        <StackPanel Name="CleanupPanel"/>
-                        <Button Name="BtnRunCleanup" Content="Run" Padding="14,8" Margin="0,10,0,20"
-                                FontSize="16" FontWeight="Bold" HorizontalAlignment="Left"
-                                ToolTip="Runs every cleanup item you've ticked above."/>
-                    </StackPanel>
-                </ScrollViewer>
+                <Border Style="{StaticResource TabCardStyle}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Text="Quick Clean-Up" Style="{StaticResource SectionHeaderStyle}"
+                                   Foreground="{StaticResource SafeBrush}" Margin="2,0,0,10"/>
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                            <StackPanel Name="CleanupPanel" Margin="2"/>
+                        </ScrollViewer>
+                        <StackPanel Grid.Row="2" Margin="0,14,0,0">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Button Grid.Column="0" Name="BtnRunCleanup" Content="Run Cleanup"
+                                        ToolTip="Runs every cleanup item you've ticked above."/>
+                                <Grid Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
+                                    <ProgressBar Name="PbCleanup"/>
+                                    <TextBlock Name="TxtCleanupPercent" Text="0%" Foreground="White" FontWeight="Bold" FontSize="12"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Grid>
+                            </Grid>
+                            <TextBlock Name="TxtCleanupStatus" Text="Tick what you'd like to clean, then click Run Cleanup."
+                                       Foreground="#94a3b8" FontSize="13" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
             </TabItem>
+
             <TabItem Header="About">
-                <StackPanel Margin="20">
-                    <TextBlock Text="Owais Humayun" FontSize="22" FontWeight="Bold" Foreground="White"/>
-                    <TextBlock Text="Built with care, shared with everyone - free and open-source." Foreground="White" Margin="0,10,0,0" FontSize="16" TextWrapping="Wrap"/>
-                    <TextBlock Text="This open source tool is designed by Owais Humayun." Foreground="White" Margin="0,10,0,0" FontSize="16" TextWrapping="Wrap"/>
-                    <TextBlock Text="This tool only installs apps through winget (Microsoft's Official Installer) and only changes settings you choose." Foreground="#cbd5e1" Margin="0,15,0,0" FontSize="15" TextWrapping="Wrap"/>
-                </StackPanel>
+                <Border Style="{StaticResource TabCardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="Owais Humayun" FontSize="22" FontWeight="Bold" Foreground="White"/>
+                        <TextBlock Text="Built with care, shared with everyone - free and open-source." Foreground="White" Margin="0,10,0,0" FontSize="16" TextWrapping="Wrap"/>
+                        <TextBlock Text="This open source tool is designed by Owais Humayun." Foreground="White" Margin="0,10,0,0" FontSize="16" TextWrapping="Wrap"/>
+                        <TextBlock Text="This tool only installs apps through winget (Microsoft's Official Installer) and only changes settings you choose." Foreground="#cbd5e1" Margin="0,15,0,0" FontSize="15" TextWrapping="Wrap"/>
+                        <Border Style="{StaticResource CardStyle}" Margin="0,20,0,0">
+                            <StackPanel>
+                                <TextBlock Text="Restore Point Safety Net" Style="{StaticResource SectionHeaderStyle}" Foreground="{StaticResource SafeBrush}"/>
+                                <TextBlock Text="A System Restore Point is created automatically before any install, tweak, or cleanup. You can also make one manually right now."
+                                           Foreground="#cbd5e1" FontSize="14" TextWrapping="Wrap" Margin="0,0,0,12"/>
+                                <Button Name="BtnCreateRestorePoint" Content="Create Restore Point Now" HorizontalAlignment="Left"
+                                        ToolTip="Creates a System Restore Point you can roll back to later."/>
+                                <TextBlock Name="TxtRestoreStatus" Text="" Foreground="#94a3b8" FontSize="13" Margin="0,10,0,0" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Border>
             </TabItem>
         </TabControl>
 
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
-            <Button Name="BtnApply" Content="Apply" Padding="16,10" Margin="6" FontSize="17"
-                    ToolTip="Installs the apps and applies the tweaks you ticked."/>
-            <Button Name="BtnRestorePoint" Content="Cancel" Padding="16,10" Margin="6" FontSize="17"
-                    ToolTip="Closes without applying anything."/>
-        </StackPanel>
+        <Grid Grid.Row="2" Margin="0,14,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="A System Restore Point is created automatically before any change is made."
+                       Foreground="#64748b" FontSize="12" VerticalAlignment="Center" TextWrapping="Wrap"/>
+            <Button Grid.Column="1" Name="BtnClose" Content="Close" Style="{StaticResource SecondaryButtonStyle}"
+                    ToolTip="Closes the window."/>
+        </Grid>
     </Grid>
 </Window>
 "@
@@ -360,57 +666,68 @@ try {
     exit
 }
 
-$AppsPanel        = $Window.FindName("AppsPanel")
-$TweaksPanel      = $Window.FindName("TweaksPanel")
-$CleanupPanel     = $Window.FindName("CleanupPanel")
-$BtnApply         = $Window.FindName("BtnApply")
-$BtnRestore       = $Window.FindName("BtnRestorePoint")
-$BtnRunCleanup    = $Window.FindName("BtnRunCleanup")
+$AppsPanel            = $Window.FindName("AppsPanel")
+$TweaksPanel          = $Window.FindName("TweaksPanel")
+$CleanupPanel         = $Window.FindName("CleanupPanel")
+$BtnInstallApps       = $Window.FindName("BtnInstallApps")
+$BtnApplyTweaks       = $Window.FindName("BtnApplyTweaks")
+$BtnRunCleanup        = $Window.FindName("BtnRunCleanup")
+$BtnCreateRestorePoint = $Window.FindName("BtnCreateRestorePoint")
+$BtnClose             = $Window.FindName("BtnClose")
+$PbApps               = $Window.FindName("PbApps")
+$PbTweaks             = $Window.FindName("PbTweaks")
+$PbCleanup            = $Window.FindName("PbCleanup")
+$TxtAppsPercent       = $Window.FindName("TxtAppsPercent")
+$TxtTweaksPercent     = $Window.FindName("TxtTweaksPercent")
+$TxtCleanupPercent    = $Window.FindName("TxtCleanupPercent")
+$TxtAppsStatus        = $Window.FindName("TxtAppsStatus")
+$TxtTweaksStatus      = $Window.FindName("TxtTweaksStatus")
+$TxtCleanupStatus     = $Window.FindName("TxtCleanupStatus")
+$TxtRestoreStatus     = $Window.FindName("TxtRestoreStatus")
 
-# --- Populate Apps, grouped by category with big friendly headers ---
+# --- Small helper: builds a rounded "card" with a colored header, returns the card and its inner stack ---
+function New-Card {
+    param([string]$HeaderText, [string]$HeaderColor)
+    $border = New-Object System.Windows.Controls.Border
+    $border.Style = $Window.FindResource("CardStyle")
+    $stack = New-Object System.Windows.Controls.StackPanel
+    $header = New-Object System.Windows.Controls.TextBlock
+    $header.Text = $HeaderText
+    $header.Style = $Window.FindResource("SectionHeaderStyle")
+    $header.Foreground = $HeaderColor
+    $stack.Children.Add($header) | Out-Null
+    $border.Child = $stack
+    return [pscustomobject]@{ Border = $border; Stack = $stack }
+}
+
+# --- Populate Apps, grouped by category with card-style headers ---
 $AppCheckboxes = @{}
 foreach ($category in $AppCategories.Keys) {
-    $header = New-Object System.Windows.Controls.TextBlock
-    $header.Text = $category
-    $header.FontSize = 19
-    $header.FontWeight = "Bold"
-    $header.Foreground = "#f97316"
-    $header.Margin = "0,14,0,6"
-    $AppsPanel.Children.Add($header) | Out-Null
-
+    $card = New-Card -HeaderText $category -HeaderColor "#f97316"
     foreach ($app in $AppCategories[$category]) {
         $cb = New-Object System.Windows.Controls.CheckBox
         $cb.Content = "$($app.Name)  -  $($app.Desc)"
-        $cb.Foreground = "White"
-        $cb.FontSize = 15
-        $cb.Margin = "10,4,0,4"
         $cb.ToolTip = $app.Desc
-        $AppsPanel.Children.Add($cb) | Out-Null
+        $card.Stack.Children.Add($cb) | Out-Null
         $AppCheckboxes[$app.Id] = $cb
     }
+    $AppsPanel.Children.Add($card.Border) | Out-Null
 }
 
-# --- Populate Tweaks, Safe first then Advanced, each with plain description ---
+# --- Populate Tweaks, Safe first then Advanced, each in its own card ---
 $TweakCheckboxes = @{}
 foreach ($tier in @("Safe", "Advanced")) {
-    $header = New-Object System.Windows.Controls.TextBlock
-    $header.Text = if ($tier -eq "Safe") { "Standard" } else { "Advanced" }
-    $header.FontSize = 19
-    $header.FontWeight = "Bold"
-    $header.Foreground = if ($tier -eq "Safe") { "#4ade80" } else { "#fb923c" }
-    $header.Margin = "0,14,0,6"
-    $TweaksPanel.Children.Add($header) | Out-Null
-
+    $tierLabel = if ($tier -eq "Safe") { "Standard" } else { "Advanced" }
+    $tierColor = if ($tier -eq "Safe") { "#4ade80" } else { "#fb923c" }
+    $card = New-Card -HeaderText $tierLabel -HeaderColor $tierColor
     foreach ($tweak in ($Tweaks | Where-Object { $_.Tier -eq $tier })) {
         $cb = New-Object System.Windows.Controls.CheckBox
         $cb.Content = "$($tweak.Name)  -  $($tweak.Desc)"
-        $cb.Foreground = "White"
-        $cb.FontSize = 15
-        $cb.Margin = "10,4,0,4"
         $cb.ToolTip = $tweak.Desc
-        $TweaksPanel.Children.Add($cb) | Out-Null
+        $card.Stack.Children.Add($cb) | Out-Null
         $TweakCheckboxes[$tweak.Name] = $cb
     }
+    $TweaksPanel.Children.Add($card.Border) | Out-Null
 }
 
 # --- Populate Cleanup checklist ---
@@ -418,52 +735,117 @@ $CleanupCheckboxes = @{}
 foreach ($item in $CleanupItems) {
     $cb = New-Object System.Windows.Controls.CheckBox
     $cb.Content = "$($item.Name)  -  $($item.Desc)"
-    $cb.Foreground = "White"
-    $cb.FontSize = 15
-    $cb.Margin = "10,4,0,4"
     $cb.ToolTip = $item.Desc
+    $cb.Margin = "10,4,0,4"
     $CleanupPanel.Children.Add($cb) | Out-Null
     $CleanupCheckboxes[$item.Name] = $cb
 }
 
-$BtnRunCleanup.Add_Click({
-    New-SafetyRestorePoint
-    foreach ($item in $CleanupItems) {
-        if ($CleanupCheckboxes[$item.Name].IsChecked) {
-            Write-Host "[OwaisHumayun] Cleaning: $($item.Name)" -ForegroundColor Cyan
-            & $item.Apply
+# --- Install Selected Apps ---
+$BtnInstallApps.Add_Click({
+    $selected = @()
+    foreach ($category in $AppCategories.Keys) {
+        foreach ($app in $AppCategories[$category]) {
+            if ($AppCheckboxes[$app.Id].IsChecked) { $selected += $app }
         }
     }
+    if ($selected.Count -eq 0) {
+        [System.Windows.MessageBox]::Show("Tick at least one app first.", "Owais Humayun")
+        return
+    }
+
+    $BtnInstallApps.IsEnabled = $false
+    Set-Progress -Bar $PbApps -PercentText $TxtAppsPercent -Percent 0
+    New-SafetyRestorePoint | Out-Null
+
+    $i = 0
+    foreach ($app in $selected) {
+        $i++
+        $TxtAppsStatus.Text = "Installing $($app.Name)... ($i of $($selected.Count))"
+        Set-Progress -Bar $PbApps -PercentText $TxtAppsPercent -Percent ((($i - 1) / $selected.Count) * 100)
+        Write-Host "[OwaisHumayun] Installing $($app.Name)..." -ForegroundColor Cyan
+        # --source winget locks this to Microsoft's official, vetted app source only.
+        # No --version is passed, so winget always grabs the newest available release.
+        Start-Process winget -ArgumentList "install --id $($app.Id) --source winget --silent --accept-package-agreements --accept-source-agreements" -Wait -NoNewWindow
+        Set-Progress -Bar $PbApps -PercentText $TxtAppsPercent -Percent (($i / $selected.Count) * 100)
+    }
+
+    $TxtAppsStatus.Text = "Done! Installed $($selected.Count) app$(if ($selected.Count -ne 1) { 's' })."
+    $BtnInstallApps.IsEnabled = $true
+    [System.Windows.MessageBox]::Show("Finished installing $($selected.Count) app(s).", "Owais Humayun")
+})
+
+# --- Apply Selected Tweaks ---
+$BtnApplyTweaks.Add_Click({
+    $selected = @($Tweaks | Where-Object { $TweakCheckboxes[$_.Name].IsChecked })
+    if ($selected.Count -eq 0) {
+        [System.Windows.MessageBox]::Show("Tick at least one tweak first.", "Owais Humayun")
+        return
+    }
+
+    $BtnApplyTweaks.IsEnabled = $false
+    Set-Progress -Bar $PbTweaks -PercentText $TxtTweaksPercent -Percent 0
+    New-SafetyRestorePoint | Out-Null
+
+    $i = 0
+    foreach ($tweak in $selected) {
+        $i++
+        $TxtTweaksStatus.Text = "Applying: $($tweak.Name) ($i of $($selected.Count))"
+        Set-Progress -Bar $PbTweaks -PercentText $TxtTweaksPercent -Percent ((($i - 1) / $selected.Count) * 100)
+        Write-Host "[OwaisHumayun] Applying: $($tweak.Name)" -ForegroundColor Cyan
+        & $tweak.Apply
+        Set-Progress -Bar $PbTweaks -PercentText $TxtTweaksPercent -Percent (($i / $selected.Count) * 100)
+    }
+
+    $TxtTweaksStatus.Text = "Done! Applied $($selected.Count) tweak$(if ($selected.Count -ne 1) { 's' })."
+    $BtnApplyTweaks.IsEnabled = $true
+    [System.Windows.MessageBox]::Show("Applied $($selected.Count) tweak(s).", "Owais Humayun")
+})
+
+# --- Run Cleanup ---
+$BtnRunCleanup.Add_Click({
+    $selected = @($CleanupItems | Where-Object { $CleanupCheckboxes[$_.Name].IsChecked })
+    if ($selected.Count -eq 0) {
+        [System.Windows.MessageBox]::Show("Tick at least one cleanup item first.", "Owais Humayun")
+        return
+    }
+
+    $BtnRunCleanup.IsEnabled = $false
+    Set-Progress -Bar $PbCleanup -PercentText $TxtCleanupPercent -Percent 0
+    New-SafetyRestorePoint | Out-Null
+
+    $i = 0
+    foreach ($item in $selected) {
+        $i++
+        $TxtCleanupStatus.Text = "Cleaning: $($item.Name) ($i of $($selected.Count))"
+        Set-Progress -Bar $PbCleanup -PercentText $TxtCleanupPercent -Percent ((($i - 1) / $selected.Count) * 100)
+        Write-Host "[OwaisHumayun] Cleaning: $($item.Name)" -ForegroundColor Cyan
+        & $item.Apply
+        Set-Progress -Bar $PbCleanup -PercentText $TxtCleanupPercent -Percent (($i / $selected.Count) * 100)
+    }
+
+    $TxtCleanupStatus.Text = "Done! Cleaned $($selected.Count) item$(if ($selected.Count -ne 1) { 's' })."
+    $BtnRunCleanup.IsEnabled = $true
     [System.Windows.MessageBox]::Show("Cleanup finished! Your PC should have a bit more free space and run a little smoother.", "Owais Humayun")
 })
 
-# --- Button actions ---
-$BtnRestore.Add_Click({
-    $Window.Close()
+# --- Manual restore point button (About tab) ---
+$BtnCreateRestorePoint.Add_Click({
+    $BtnCreateRestorePoint.IsEnabled = $false
+    $TxtRestoreStatus.Text = "Creating restore point..."
+    $TxtRestoreStatus.Dispatcher.Invoke([Windows.Threading.DispatcherPriority]::Background, [action]{})
+    $ok = New-SafetyRestorePoint
+    if ($ok) {
+        $TxtRestoreStatus.Text = "Restore point created. You're safe to make changes."
+    } else {
+        $TxtRestoreStatus.Text = "Windows only allows one restore point every 24 hours - you likely already have a recent one."
+    }
+    $BtnCreateRestorePoint.IsEnabled = $true
 })
 
-$BtnApply.Add_Click({
-    New-SafetyRestorePoint
-
-    foreach ($category in $AppCategories.Keys) {
-        foreach ($app in $AppCategories[$category]) {
-            if ($AppCheckboxes[$app.Id].IsChecked) {
-                Write-Host "[OwaisHumayun] Installing $($app.Name)..." -ForegroundColor Cyan
-                # --source winget locks this to Microsoft's official, vetted app source only.
-                # No --version is passed, so winget always grabs the newest available release.
-                Start-Process winget -ArgumentList "install --id $($app.Id) --source winget --silent --accept-package-agreements --accept-source-agreements" -Wait -NoNewWindow
-            }
-        }
-    }
-
-    foreach ($tweak in $Tweaks) {
-        if ($TweakCheckboxes[$tweak.Name].IsChecked) {
-            Write-Host "[OwaisHumayun] Applying: $($tweak.Name)" -ForegroundColor Cyan
-            & $tweak.Apply
-        }
-    }
-
-    [System.Windows.MessageBox]::Show("All done! Everything you checked has been installed or applied.", "Owais Humayun")
+# --- Close ---
+$BtnClose.Add_Click({
+    $Window.Close()
 })
 
 $Window.ShowDialog() | Out-Null

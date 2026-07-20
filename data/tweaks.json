@@ -1,0 +1,242 @@
+{
+  "tweaks": [
+    {
+      "id": "disable-telemetry",
+      "name": "Stop Windows from Watching What You Do (Telemetry)",
+      "tier": "safe",
+      "desc": "Reduces the usage data Windows sends to Microsoft.",
+      "steps": [
+        { "type": "registry", "hive": "HKLM", "path": "SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection", "name": "AllowTelemetry", "value": 0, "valueType": "dword", "createKey": false }
+      ]
+    },
+    {
+      "id": "disable-bing-search",
+      "name": "Turn Off Bing Results in Search",
+      "tier": "safe",
+      "desc": "Makes the Start Menu search only look at your own files, not the internet.",
+      "steps": [
+        { "type": "registry", "hive": "HKCU", "path": "SOFTWARE\\Policies\\Microsoft\\Windows\\Explorer", "name": "DisableSearchBoxSuggestions", "value": 1, "valueType": "dword", "createKey": true }
+      ]
+    },
+    {
+      "id": "show-file-extensions",
+      "name": "Always Show File Extensions",
+      "tier": "safe",
+      "desc": "Shows '.docx', '.jpg' etc. so you always know what kind of file you're opening.",
+      "steps": [
+        { "type": "registry", "hive": "HKCU", "path": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "name": "HideFileExt", "value": 0, "valueType": "dword", "createKey": false }
+      ]
+    },
+    {
+      "id": "disable-background-apps",
+      "name": "Stop Apps Running in the Background",
+      "tier": "safe",
+      "desc": "Saves battery and speeds up your PC by stopping apps you're not using.",
+      "steps": [
+        { "type": "registry", "hive": "HKCU", "path": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\BackgroundAccessApplications", "name": "GlobalUserDisabled", "value": 1, "valueType": "dword", "createKey": false }
+      ]
+    },
+    {
+      "id": "disable-tips-and-suggestions",
+      "name": "Remove Annoying 'Tips & Suggestions'",
+      "tier": "safe",
+      "desc": "Turns off the pop-up tips and ads Windows sometimes shows you.",
+      "steps": [
+        { "type": "registry", "hive": "HKCU", "path": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "name": "SubscribedContent-338389Enabled", "value": 0, "valueType": "dword", "createKey": false }
+      ]
+    },
+    {
+      "id": "bigger-mouse-pointer",
+      "name": "Make the Mouse Pointer Bigger and Easier to See",
+      "tier": "safe",
+      "desc": "Great for anyone who finds the normal cursor too small.",
+      "steps": [
+        { "type": "registry", "hive": "HKCU", "path": "Control Panel\\Cursors", "name": "CursorBaseSize", "value": 48, "valueType": "dword", "createKey": false }
+      ]
+    },
+    {
+      "id": "disable-usb-autorun",
+      "name": "Stop Apps Auto-Opening from USB Drives",
+      "tier": "safe",
+      "desc": "Stops apps from popping up automatically when you plug in a USB drive.",
+      "steps": [
+        { "type": "registry", "hive": "HKCU", "path": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer", "name": "NoDriveTypeAutoRun", "value": 255, "valueType": "dword", "createKey": false }
+      ]
+    },
+    {
+      "id": "speed-up-menus",
+      "name": "Speed Up Menus (Reduce Delay)",
+      "tier": "safe",
+      "desc": "Makes right-click menus pop open instantly instead of with a slight delay.",
+      "steps": [
+        { "type": "registry", "hive": "HKCU", "path": "Control Panel\\Desktop", "name": "MenuShowDelay", "value": "0", "valueType": "string", "createKey": false }
+      ]
+    },
+    {
+      "id": "restore-classic-context-menu",
+      "name": "Restore the Classic Right-Click Menu",
+      "tier": "safe",
+      "desc": "Brings back the full right-click menu from before Windows 11's simplified version.",
+      "steps": [
+        { "type": "registry", "hive": "HKCU", "path": "Software\\Classes\\CLSID\\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\\InprocServer32", "name": "", "value": "", "valueType": "string", "createKey": true }
+      ]
+    },
+    {
+      "id": "show-seconds-in-clock",
+      "name": "Show Seconds in the Taskbar Clock",
+      "tier": "safe",
+      "desc": "Adds seconds to the time shown in your taskbar clock.",
+      "steps": [
+        { "type": "registry", "hive": "HKCU", "path": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "name": "ShowSecondsInSystemClock", "value": 1, "valueType": "dword", "createKey": false }
+      ]
+    },
+    {
+      "id": "disable-widgets-icon",
+      "name": "Turn Off the Widgets Icon on the Taskbar",
+      "tier": "safe",
+      "desc": "Removes the Widgets/news feed icon so the taskbar stays clutter-free.",
+      "steps": [
+        { "type": "registry", "hive": "HKCU", "path": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "name": "TaskbarDa", "value": 0, "valueType": "dword", "createKey": false }
+      ]
+    },
+    {
+      "id": "show-hidden-files",
+      "name": "Show Hidden Files and Folders",
+      "tier": "safe",
+      "desc": "Lets File Explorer show files that are normally hidden from view.",
+      "steps": [
+        { "type": "registry", "hive": "HKCU", "path": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "name": "Hidden", "value": 1, "valueType": "dword", "createKey": false }
+      ]
+    },
+    {
+      "id": "left-align-taskbar-icons",
+      "name": "Left-Align Taskbar Icons (Classic Style)",
+      "tier": "safe",
+      "desc": "Moves taskbar icons back to the left, like older versions of Windows.",
+      "steps": [
+        { "type": "registry", "hive": "HKCU", "path": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "name": "TaskbarAl", "value": 0, "valueType": "dword", "createKey": false }
+      ]
+    },
+    {
+      "id": "hide-search-icon",
+      "name": "Hide the Search Icon on the Taskbar",
+      "tier": "advanced",
+      "desc": "Removes the search magnifying glass from the taskbar to reduce clutter.",
+      "steps": [
+        { "type": "registry", "hive": "HKCU", "path": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Search", "name": "SearchboxTaskbarMode", "value": 0, "valueType": "dword", "createKey": false }
+      ]
+    },
+    {
+      "id": "disable-cortana",
+      "name": "Turn Off Cortana",
+      "tier": "advanced",
+      "desc": "Fully disables the Cortana voice assistant.",
+      "steps": [
+        { "type": "registry", "hive": "HKLM", "path": "SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search", "name": "AllowCortana", "value": 0, "valueType": "dword", "createKey": true }
+      ]
+    },
+    {
+      "id": "disable-hibernation",
+      "name": "Disable Hibernation (Free Up Disk Space)",
+      "tier": "advanced",
+      "desc": "Turns off the hibernate feature and deletes its large hidden system file.",
+      "steps": [
+        { "type": "process", "exe": "powercfg", "args": ["-h", "off"] }
+      ]
+    },
+    {
+      "id": "show-detailed-boot-info",
+      "name": "Show Detailed Boot Info (For Troubleshooting)",
+      "tier": "advanced",
+      "desc": "Shows technical messages while Windows starts up - useful for diagnosing problems.",
+      "steps": [
+        { "type": "process", "exe": "bcdedit", "args": ["/set", "{current}", "bootlog", "Yes"] }
+      ]
+    },
+    {
+      "id": "disable-sticky-keys-popup",
+      "name": "Disable Sticky Keys Pop-up",
+      "tier": "advanced",
+      "desc": "Stops the accessibility pop-up that appears if you press Shift 5 times by accident.",
+      "steps": [
+        { "type": "registry", "hive": "HKCU", "path": "Control Panel\\Accessibility\\StickyKeys", "name": "Flags", "value": "506", "valueType": "string", "createKey": false }
+      ]
+    },
+    {
+      "id": "reduce-game-bar-nags",
+      "name": "Reduce Game Bar Nag Prompts",
+      "tier": "advanced",
+      "desc": "Prevents certain pre-installed prompts from nagging you to enable extra features.",
+      "steps": [
+        { "type": "registry", "hive": "HKCU", "path": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\GameDVR", "name": "AppCaptureEnabled", "value": 0, "valueType": "dword", "createKey": false }
+      ]
+    },
+    {
+      "id": "disable-windows-recall",
+      "name": "Disable Windows Recall",
+      "tier": "advanced",
+      "desc": "Turns off Recall, the feature that takes periodic screenshots of your activity.",
+      "steps": [
+        { "type": "registry", "hive": "HKLM", "path": "SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsAI", "name": "DisableAIDataAnalysis", "value": 1, "valueType": "dword", "createKey": true }
+      ]
+    },
+    {
+      "id": "disable-copilot",
+      "name": "Disable Copilot",
+      "tier": "advanced",
+      "desc": "Removes the Windows Copilot AI assistant from your taskbar and system.",
+      "steps": [
+        { "type": "registry", "hive": "HKCU", "path": "SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsCopilot", "name": "TurnOffWindowsCopilot", "value": 1, "valueType": "dword", "createKey": true }
+      ]
+    },
+    {
+      "id": "disable-delivery-optimization",
+      "name": "Disable Delivery Optimization (P2P Updates)",
+      "tier": "advanced",
+      "desc": "Stops Windows from uploading update files to other PCs on the internet.",
+      "steps": [
+        { "type": "registry", "hive": "HKLM", "path": "SOFTWARE\\Policies\\Microsoft\\Windows\\DeliveryOptimization", "name": "DODownloadMode", "value": 0, "valueType": "dword", "createKey": true }
+      ]
+    },
+    {
+      "id": "disable-advertising-id",
+      "name": "Disable Advertising ID",
+      "tier": "advanced",
+      "desc": "Stops apps from using a unique ID to show you personalized ads.",
+      "steps": [
+        { "type": "registry", "hive": "HKCU", "path": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\AdvertisingInfo", "name": "Enabled", "value": 0, "valueType": "dword", "createKey": false }
+      ]
+    },
+    {
+      "id": "disable-activity-history",
+      "name": "Disable Activity History and Timeline",
+      "tier": "advanced",
+      "desc": "Stops Windows from tracking and syncing your recent activity across devices.",
+      "steps": [
+        { "type": "registry", "hive": "HKCU", "path": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System", "name": "EnableActivityFeed", "value": 0, "valueType": "dword", "createKey": false },
+        { "type": "registry", "hive": "HKCU", "path": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System", "name": "PublishUserActivities", "value": 0, "valueType": "dword", "createKey": false },
+        { "type": "registry", "hive": "HKCU", "path": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System", "name": "UploadUserActivities", "value": 0, "valueType": "dword", "createKey": false }
+      ]
+    },
+    {
+      "id": "high-performance-power-plan",
+      "name": "Switch to High Performance Power Plan",
+      "tier": "advanced",
+      "desc": "Prioritizes speed over battery savings - best for desktops, less ideal for laptops on battery.",
+      "steps": [
+        { "type": "process", "exe": "powercfg", "args": ["/s", "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c"] }
+      ]
+    },
+    {
+      "id": "reset-network-adapters",
+      "name": "Reset Network Adapters",
+      "tier": "advanced",
+      "desc": "Can fix internet connection problems. Briefly disconnects you from the network.",
+      "steps": [
+        { "type": "process", "exe": "ipconfig", "args": ["/release"] },
+        { "type": "process", "exe": "ipconfig", "args": ["/renew"] },
+        { "type": "process", "exe": "ipconfig", "args": ["/flushdns"] }
+      ]
+    }
+  ]
+}
