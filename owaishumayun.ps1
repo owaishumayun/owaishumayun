@@ -28,6 +28,12 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
 [System.Threading.Thread]::CurrentThread.CurrentCulture = [System.Globalization.CultureInfo]::InvariantCulture
 [System.Threading.Thread]::CurrentThread.CurrentUICulture = [System.Globalization.CultureInfo]::InvariantCulture
 
+# winget ships as "App Installer" - present on almost all Win10/11 PCs, but not
+# guaranteed on older or heavily stripped-down installs. Check once up front so
+# we can disable the Install button with a clear explanation instead of letting
+# every single install silently fail.
+$WingetAvailable = $null -ne (Get-Command winget -ErrorAction SilentlyContinue)
+
 # ---------------------------------------------------------------------------
 #  SAFETY: Create a restore point before anything else runs
 # ---------------------------------------------------------------------------
@@ -397,6 +403,13 @@ $CleanupItems = @(
         <Style x:Key="SecondaryButtonStyle" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
             <Setter Property="Background" Value="#334155"/>
         </Style>
+        <Style x:Key="LinkButtonStyle" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="8,4"/>
+        </Style>
 
         <!-- Progress bar -->
         <Style TargetType="ProgressBar">
@@ -518,13 +531,25 @@ $CleanupItems = @(
                 <Border Style="{StaticResource TabCardStyle}">
                     <Grid>
                         <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-                        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
+                        <Grid Grid.Row="0" Margin="2,0,2,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Name="TxtAppsSelectedCount" Text="0 selected" Foreground="#94a3b8" FontSize="13" VerticalAlignment="Center"/>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <Button Name="BtnAppsSelectAll" Content="Select All" Style="{StaticResource LinkButtonStyle}"/>
+                                <Button Name="BtnAppsClearAll" Content="Clear All" Style="{StaticResource LinkButtonStyle}" Margin="4,0,0,0"/>
+                            </StackPanel>
+                        </Grid>
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                             <StackPanel Name="AppsPanel" Margin="2"/>
                         </ScrollViewer>
-                        <StackPanel Grid.Row="1" Margin="0,14,0,0">
+                        <StackPanel Grid.Row="2" Margin="0,14,0,0">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto"/>
@@ -549,13 +574,25 @@ $CleanupItems = @(
                 <Border Style="{StaticResource TabCardStyle}">
                     <Grid>
                         <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-                        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
+                        <Grid Grid.Row="0" Margin="2,0,2,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Name="TxtTweaksSelectedCount" Text="0 selected" Foreground="#94a3b8" FontSize="13" VerticalAlignment="Center"/>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <Button Name="BtnTweaksSelectAll" Content="Select All" Style="{StaticResource LinkButtonStyle}"/>
+                                <Button Name="BtnTweaksClearAll" Content="Clear All" Style="{StaticResource LinkButtonStyle}" Margin="4,0,0,0"/>
+                            </StackPanel>
+                        </Grid>
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                             <StackPanel Name="TweaksPanel" Margin="2"/>
                         </ScrollViewer>
-                        <StackPanel Grid.Row="1" Margin="0,14,0,0">
+                        <StackPanel Grid.Row="2" Margin="0,14,0,0">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto"/>
@@ -581,15 +618,27 @@ $CleanupItems = @(
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <TextBlock Grid.Row="0" Text="Quick Clean-Up" Style="{StaticResource SectionHeaderStyle}"
                                    Foreground="{StaticResource SafeBrush}" Margin="2,0,0,10"/>
-                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                        <Grid Grid.Row="1" Margin="2,0,2,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Name="TxtCleanupSelectedCount" Text="0 selected" Foreground="#94a3b8" FontSize="13" VerticalAlignment="Center"/>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <Button Name="BtnCleanupSelectAll" Content="Select All" Style="{StaticResource LinkButtonStyle}"/>
+                                <Button Name="BtnCleanupClearAll" Content="Clear All" Style="{StaticResource LinkButtonStyle}" Margin="4,0,0,0"/>
+                            </StackPanel>
+                        </Grid>
+                        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
                             <StackPanel Name="CleanupPanel" Margin="2"/>
                         </ScrollViewer>
-                        <StackPanel Grid.Row="2" Margin="0,14,0,0">
+                        <StackPanel Grid.Row="3" Margin="0,14,0,0">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto"/>
@@ -684,6 +733,20 @@ $TxtAppsStatus        = $Window.FindName("TxtAppsStatus")
 $TxtTweaksStatus      = $Window.FindName("TxtTweaksStatus")
 $TxtCleanupStatus     = $Window.FindName("TxtCleanupStatus")
 $TxtRestoreStatus     = $Window.FindName("TxtRestoreStatus")
+$TxtAppsSelectedCount    = $Window.FindName("TxtAppsSelectedCount")
+$TxtTweaksSelectedCount  = $Window.FindName("TxtTweaksSelectedCount")
+$TxtCleanupSelectedCount = $Window.FindName("TxtCleanupSelectedCount")
+$BtnAppsSelectAll     = $Window.FindName("BtnAppsSelectAll")
+$BtnAppsClearAll      = $Window.FindName("BtnAppsClearAll")
+$BtnTweaksSelectAll   = $Window.FindName("BtnTweaksSelectAll")
+$BtnTweaksClearAll    = $Window.FindName("BtnTweaksClearAll")
+$BtnCleanupSelectAll  = $Window.FindName("BtnCleanupSelectAll")
+$BtnCleanupClearAll   = $Window.FindName("BtnCleanupClearAll")
+
+if (-not $WingetAvailable) {
+    $BtnInstallApps.IsEnabled = $false
+    $TxtAppsStatus.Text = "winget isn't available on this PC. Install 'App Installer' from the Microsoft Store, then reopen this tool to install apps."
+}
 
 # --- Small helper: builds a rounded "card" with a colored header, returns the card and its inner stack ---
 function New-Card {
@@ -700,6 +763,13 @@ function New-Card {
     return [pscustomobject]@{ Border = $border; Stack = $stack }
 }
 
+# --- Keeps each tab's "N selected" label in sync with its checkboxes ---
+function Update-SelectionCount {
+    param($Checkboxes, $CountText)
+    $count = @($Checkboxes.Values | Where-Object { $_.IsChecked }).Count
+    $CountText.Text = "$count selected"
+}
+
 # --- Populate Apps, grouped by category with card-style headers ---
 $AppCheckboxes = @{}
 foreach ($category in $AppCategories.Keys) {
@@ -708,6 +778,8 @@ foreach ($category in $AppCategories.Keys) {
         $cb = New-Object System.Windows.Controls.CheckBox
         $cb.Content = "$($app.Name)  -  $($app.Desc)"
         $cb.ToolTip = $app.Desc
+        $cb.Add_Checked({ Update-SelectionCount -Checkboxes $AppCheckboxes -CountText $TxtAppsSelectedCount })
+        $cb.Add_Unchecked({ Update-SelectionCount -Checkboxes $AppCheckboxes -CountText $TxtAppsSelectedCount })
         $card.Stack.Children.Add($cb) | Out-Null
         $AppCheckboxes[$app.Id] = $cb
     }
@@ -724,6 +796,8 @@ foreach ($tier in @("Safe", "Advanced")) {
         $cb = New-Object System.Windows.Controls.CheckBox
         $cb.Content = "$($tweak.Name)  -  $($tweak.Desc)"
         $cb.ToolTip = $tweak.Desc
+        $cb.Add_Checked({ Update-SelectionCount -Checkboxes $TweakCheckboxes -CountText $TxtTweaksSelectedCount })
+        $cb.Add_Unchecked({ Update-SelectionCount -Checkboxes $TweakCheckboxes -CountText $TxtTweaksSelectedCount })
         $card.Stack.Children.Add($cb) | Out-Null
         $TweakCheckboxes[$tweak.Name] = $cb
     }
@@ -737,12 +811,26 @@ foreach ($item in $CleanupItems) {
     $cb.Content = "$($item.Name)  -  $($item.Desc)"
     $cb.ToolTip = $item.Desc
     $cb.Margin = "10,4,0,4"
+    $cb.Add_Checked({ Update-SelectionCount -Checkboxes $CleanupCheckboxes -CountText $TxtCleanupSelectedCount })
+    $cb.Add_Unchecked({ Update-SelectionCount -Checkboxes $CleanupCheckboxes -CountText $TxtCleanupSelectedCount })
     $CleanupPanel.Children.Add($cb) | Out-Null
     $CleanupCheckboxes[$item.Name] = $cb
 }
 
+# --- Select All / Clear All ---
+$BtnAppsSelectAll.Add_Click({ $AppCheckboxes.Values | ForEach-Object { $_.IsChecked = $true } })
+$BtnAppsClearAll.Add_Click({ $AppCheckboxes.Values | ForEach-Object { $_.IsChecked = $false } })
+$BtnTweaksSelectAll.Add_Click({ $TweakCheckboxes.Values | ForEach-Object { $_.IsChecked = $true } })
+$BtnTweaksClearAll.Add_Click({ $TweakCheckboxes.Values | ForEach-Object { $_.IsChecked = $false } })
+$BtnCleanupSelectAll.Add_Click({ $CleanupCheckboxes.Values | ForEach-Object { $_.IsChecked = $true } })
+$BtnCleanupClearAll.Add_Click({ $CleanupCheckboxes.Values | ForEach-Object { $_.IsChecked = $false } })
+
 # --- Install Selected Apps ---
 $BtnInstallApps.Add_Click({
+    if (-not $WingetAvailable) {
+        [System.Windows.MessageBox]::Show("winget isn't available on this PC. Install 'App Installer' from the Microsoft Store, then try again.", "Owais Humayun")
+        return
+    }
     $selected = @()
     foreach ($category in $AppCategories.Keys) {
         foreach ($app in $AppCategories[$category]) {
@@ -758,21 +846,37 @@ $BtnInstallApps.Add_Click({
     Set-Progress -Bar $PbApps -PercentText $TxtAppsPercent -Percent 0
     New-SafetyRestorePoint | Out-Null
 
+    $failed = @()
     $i = 0
     foreach ($app in $selected) {
         $i++
         $TxtAppsStatus.Text = "Installing $($app.Name)... ($i of $($selected.Count))"
         Set-Progress -Bar $PbApps -PercentText $TxtAppsPercent -Percent ((($i - 1) / $selected.Count) * 100)
         Write-Host "[OwaisHumayun] Installing $($app.Name)..." -ForegroundColor Cyan
-        # --source winget locks this to Microsoft's official, vetted app source only.
-        # No --version is passed, so winget always grabs the newest available release.
-        Start-Process winget -ArgumentList "install --id $($app.Id) --source winget --silent --accept-package-agreements --accept-source-agreements" -Wait -NoNewWindow
+        try {
+            # --source winget locks this to Microsoft's official, vetted app source only.
+            # No --version is passed, so winget always grabs the newest available release.
+            $proc = Start-Process winget -ArgumentList "install --id $($app.Id) --source winget --silent --accept-package-agreements --accept-source-agreements" -Wait -NoNewWindow -PassThru
+            if ($proc.ExitCode -ne 0) {
+                $failed += $app.Name
+                Write-Host "[OwaisHumayun] $($app.Name) exited with code $($proc.ExitCode)" -ForegroundColor Yellow
+            }
+        } catch {
+            $failed += $app.Name
+            Write-Host "[OwaisHumayun] Failed to install $($app.Name): $($_.Exception.Message)" -ForegroundColor Red
+        }
         Set-Progress -Bar $PbApps -PercentText $TxtAppsPercent -Percent (($i / $selected.Count) * 100)
     }
 
-    $TxtAppsStatus.Text = "Done! Installed $($selected.Count) app$(if ($selected.Count -ne 1) { 's' })."
+    $succeeded = $selected.Count - $failed.Count
+    if ($failed.Count -eq 0) {
+        $TxtAppsStatus.Text = "Done! Installed $succeeded app$(if ($succeeded -ne 1) { 's' })."
+        [System.Windows.MessageBox]::Show("Finished installing $succeeded app(s).", "Owais Humayun")
+    } else {
+        $TxtAppsStatus.Text = "Installed $succeeded of $($selected.Count). Couldn't install: $($failed -join ', ')."
+        [System.Windows.MessageBox]::Show("Installed $succeeded of $($selected.Count) app(s).`n`nCouldn't install: $($failed -join ', ')`n`nCheck the console window for details.", "Owais Humayun")
+    }
     $BtnInstallApps.IsEnabled = $true
-    [System.Windows.MessageBox]::Show("Finished installing $($selected.Count) app(s).", "Owais Humayun")
 })
 
 # --- Apply Selected Tweaks ---
@@ -787,19 +891,31 @@ $BtnApplyTweaks.Add_Click({
     Set-Progress -Bar $PbTweaks -PercentText $TxtTweaksPercent -Percent 0
     New-SafetyRestorePoint | Out-Null
 
+    $failed = @()
     $i = 0
     foreach ($tweak in $selected) {
         $i++
         $TxtTweaksStatus.Text = "Applying: $($tweak.Name) ($i of $($selected.Count))"
         Set-Progress -Bar $PbTweaks -PercentText $TxtTweaksPercent -Percent ((($i - 1) / $selected.Count) * 100)
         Write-Host "[OwaisHumayun] Applying: $($tweak.Name)" -ForegroundColor Cyan
-        & $tweak.Apply
+        try {
+            & $tweak.Apply
+        } catch {
+            $failed += $tweak.Name
+            Write-Host "[OwaisHumayun] Failed to apply $($tweak.Name): $($_.Exception.Message)" -ForegroundColor Red
+        }
         Set-Progress -Bar $PbTweaks -PercentText $TxtTweaksPercent -Percent (($i / $selected.Count) * 100)
     }
 
-    $TxtTweaksStatus.Text = "Done! Applied $($selected.Count) tweak$(if ($selected.Count -ne 1) { 's' })."
+    $succeeded = $selected.Count - $failed.Count
+    if ($failed.Count -eq 0) {
+        $TxtTweaksStatus.Text = "Done! Applied $succeeded tweak$(if ($succeeded -ne 1) { 's' })."
+        [System.Windows.MessageBox]::Show("Applied $succeeded tweak(s).", "Owais Humayun")
+    } else {
+        $TxtTweaksStatus.Text = "Applied $succeeded of $($selected.Count). Couldn't apply: $($failed -join ', ')."
+        [System.Windows.MessageBox]::Show("Applied $succeeded of $($selected.Count) tweak(s).`n`nCouldn't apply: $($failed -join ', ')`n`nCheck the console window for details.", "Owais Humayun")
+    }
     $BtnApplyTweaks.IsEnabled = $true
-    [System.Windows.MessageBox]::Show("Applied $($selected.Count) tweak(s).", "Owais Humayun")
 })
 
 # --- Run Cleanup ---
@@ -814,19 +930,31 @@ $BtnRunCleanup.Add_Click({
     Set-Progress -Bar $PbCleanup -PercentText $TxtCleanupPercent -Percent 0
     New-SafetyRestorePoint | Out-Null
 
+    $failed = @()
     $i = 0
     foreach ($item in $selected) {
         $i++
         $TxtCleanupStatus.Text = "Cleaning: $($item.Name) ($i of $($selected.Count))"
         Set-Progress -Bar $PbCleanup -PercentText $TxtCleanupPercent -Percent ((($i - 1) / $selected.Count) * 100)
         Write-Host "[OwaisHumayun] Cleaning: $($item.Name)" -ForegroundColor Cyan
-        & $item.Apply
+        try {
+            & $item.Apply
+        } catch {
+            $failed += $item.Name
+            Write-Host "[OwaisHumayun] Failed to clean $($item.Name): $($_.Exception.Message)" -ForegroundColor Red
+        }
         Set-Progress -Bar $PbCleanup -PercentText $TxtCleanupPercent -Percent (($i / $selected.Count) * 100)
     }
 
-    $TxtCleanupStatus.Text = "Done! Cleaned $($selected.Count) item$(if ($selected.Count -ne 1) { 's' })."
+    $succeeded = $selected.Count - $failed.Count
+    if ($failed.Count -eq 0) {
+        $TxtCleanupStatus.Text = "Done! Cleaned $succeeded item$(if ($succeeded -ne 1) { 's' })."
+        [System.Windows.MessageBox]::Show("Cleanup finished! Your PC should have a bit more free space and run a little smoother.", "Owais Humayun")
+    } else {
+        $TxtCleanupStatus.Text = "Cleaned $succeeded of $($selected.Count). Couldn't clean: $($failed -join ', ')."
+        [System.Windows.MessageBox]::Show("Cleaned $succeeded of $($selected.Count) item(s).`n`nCouldn't clean: $($failed -join ', ')`n`nCheck the console window for details.", "Owais Humayun")
+    }
     $BtnRunCleanup.IsEnabled = $true
-    [System.Windows.MessageBox]::Show("Cleanup finished! Your PC should have a bit more free space and run a little smoother.", "Owais Humayun")
 })
 
 # --- Manual restore point button (About tab) ---
