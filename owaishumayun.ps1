@@ -354,6 +354,42 @@ function Get-HealthScore {
 }
 
 # ---------------------------------------------------------------------------
+#  SPEED TEST HELPERS
+#  Download speed is measured by timing a download of a public test file
+#  (Tele2's speedtest server, a well-known host provided specifically for
+#  this purpose). Upload speed isn't measured - a real upload benchmark
+#  needs a paired server to receive the data, which this tool doesn't have.
+# ---------------------------------------------------------------------------
+function Test-InternetLatency {
+    try {
+        $pings = Test-Connection -ComputerName "1.1.1.1" -Count 4 -ErrorAction Stop
+        $avg = [math]::Round(($pings | Measure-Object -Property ResponseTime -Average).Average)
+        return $avg
+    } catch {
+        return $null
+    }
+}
+
+function Test-InternetDownloadSpeed {
+    $url = "https://speedtest.tele2.net/10MB.zip"
+    $tempFile = [System.IO.Path]::GetTempFileName()
+    try {
+        $wc = New-Object System.Net.WebClient
+        $sw = [System.Diagnostics.Stopwatch]::StartNew()
+        $wc.DownloadFile($url, $tempFile)
+        $sw.Stop()
+        $bytes = (Get-Item $tempFile -ErrorAction Stop).Length
+        $seconds = [math]::Max($sw.Elapsed.TotalSeconds, 0.01)
+        $mbps = [math]::Round((($bytes * 8) / $seconds) / 1MB, 1)
+        return @{ Success = $true; Mbps = $mbps }
+    } catch {
+        return @{ Success = $false; Error = $_.Exception.Message }
+    } finally {
+        Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+    }
+}
+
+# ---------------------------------------------------------------------------
 #  WPF LAYOUT - Professional sidebar, dashboard, dark theme
 # ---------------------------------------------------------------------------
 [xml]$Xaml = @"
@@ -546,40 +582,45 @@ function Get-HealthScore {
 
     <Border CornerRadius="12" Background="#0b1120" BorderBrush="#1c2d47" BorderThickness="1">
         <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- Title Bar / Drag Area - spans the full window so the window controls sit top-right -->
+            <Border Grid.Row="0" Name="TitleBar" Background="Transparent" Height="38" Cursor="Hand">
+                <Grid>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,6,10,0">
+                        <Button Name="BtnMinimize" Width="28" Height="28" Background="Transparent" Foreground="#64748b"
+                                FontFamily="Segoe MDL2 Assets" Content="&#xE921;" FontSize="10" Padding="0"
+                                ToolTip="Minimize"/>
+                        <Button Name="BtnMaximize" Width="28" Height="28" Background="Transparent" Foreground="#64748b"
+                                FontFamily="Segoe MDL2 Assets" Content="&#xE922;" FontSize="10" Padding="0" Margin="2,0,0,0"
+                                ToolTip="Maximize"/>
+                        <Button Name="BtnCloseWindow" Width="28" Height="28" Background="Transparent" Foreground="#64748b"
+                                FontFamily="Segoe MDL2 Assets" Content="&#xE8BB;" FontSize="10" Padding="0" Margin="2,0,0,0"
+                                ToolTip="Close"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="230"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
             <!-- ============ LEFT SIDEBAR ============ -->
-            <Border Grid.Column="0" Background="#070d1a" CornerRadius="12,0,0,12">
+            <Border Grid.Column="0" Background="#070d1a" CornerRadius="0,0,0,12">
                 <Grid>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
-                    <!-- Title Bar / Drag Area -->
-                    <Border Grid.Row="0" Name="TitleBar" Background="Transparent" Height="38" Cursor="Hand">
-                        <Grid>
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,6,8,0">
-                                <Button Name="BtnMinimize" Width="28" Height="28" Background="Transparent" Foreground="#64748b"
-                                        FontFamily="Segoe MDL2 Assets" Content="&#xE921;" FontSize="10" Padding="0"
-                                        ToolTip="Minimize"/>
-                                <Button Name="BtnMaximize" Width="28" Height="28" Background="Transparent" Foreground="#64748b"
-                                        FontFamily="Segoe MDL2 Assets" Content="&#xE922;" FontSize="10" Padding="0" Margin="2,0,0,0"
-                                        ToolTip="Maximize"/>
-                                <Button Name="BtnCloseWindow" Width="28" Height="28" Background="Transparent" Foreground="#64748b"
-                                        FontFamily="Segoe MDL2 Assets" Content="&#xE8BB;" FontSize="10" Padding="0" Margin="2,0,0,0"
-                                        ToolTip="Close"/>
-                            </StackPanel>
-                        </Grid>
-                    </Border>
-
                     <!-- Logo -->
-                    <StackPanel Grid.Row="1" Margin="20,4,20,24">
+                    <StackPanel Grid.Row="0" Margin="20,16,20,24">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
@@ -603,7 +644,7 @@ function Get-HealthScore {
                     </StackPanel>
 
                     <!-- Navigation -->
-                    <StackPanel Grid.Row="2" Margin="10,0,10,0">
+                    <StackPanel Grid.Row="1" Margin="10,0,10,0">
                         <!-- Dashboard -->
                         <Border Name="NavDashboard" Background="#0f1d36" CornerRadius="8" Margin="0,1" Cursor="Hand">
                             <Grid Margin="14,10">
@@ -668,6 +709,21 @@ function Get-HealthScore {
                                            FontSize="14" Margin="12,0,0,0" VerticalAlignment="Center" Name="NavCleanupText"/>
                             </Grid>
                         </Border>
+                        <!-- Speed Test -->
+                        <Border Name="NavSpeedTest" Background="Transparent" CornerRadius="8" Margin="0,1" Cursor="Hand">
+                            <Grid Margin="14,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" Width="3" HorizontalAlignment="Left" Margin="-14,0,0,0"
+                                        CornerRadius="0,2,2,0" Name="NavSpeedTestBar" Background="Transparent"/>
+                                <TextBlock Grid.Column="0" Text="&#xE774;" FontFamily="Segoe MDL2 Assets" FontSize="16"
+                                           Foreground="#64748b" VerticalAlignment="Center" Name="NavSpeedTestIcon"/>
+                                <TextBlock Grid.Column="1" Text="Speed Test" Foreground="#94a3b8"
+                                           FontSize="14" Margin="12,0,0,0" VerticalAlignment="Center" Name="NavSpeedTestText"/>
+                            </Grid>
+                        </Border>
 
                         <!-- Separator -->
                         <Border Height="1" Background="#1c2d47" Margin="6,12,6,12"/>
@@ -690,7 +746,7 @@ function Get-HealthScore {
                     </StackPanel>
 
                     <!-- Bottom Version -->
-                    <StackPanel Grid.Row="3" Margin="20,0,20,16">
+                    <StackPanel Grid.Row="2" Margin="20,0,20,16">
                         <Border Height="1" Background="#1c2d47" Margin="0,0,0,12"/>
                         <TextBlock Text="Simple. Safe. Free." Foreground="#475569" FontSize="11" HorizontalAlignment="Center"/>
                         <TextBlock Text="Kangaroo Co - v1.0" Foreground="#334155" FontSize="10" HorizontalAlignment="Center" Margin="0,2,0,0"/>
@@ -727,10 +783,11 @@ function Get-HealthScore {
                             <Canvas Grid.Column="0" Name="GaugeCanvas" Width="200" Height="120" Margin="10,0,30,0"/>
                             <!-- Issues List -->
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                <TextBlock Text="System Status" FontSize="16" FontWeight="SemiBold" Foreground="White" Margin="0,0,0,8"/>
+                                <TextBlock Text="System Status" FontSize="16" FontWeight="SemiBold" Foreground="White" Margin="0,0,0,6"/>
+                                <TextBlock Name="TxtScanSummary" Text="Not scanned yet" FontSize="14" FontWeight="SemiBold" Foreground="#94a3b8" Margin="0,0,0,10" TextWrapping="Wrap"/>
                                 <StackPanel Name="IssuesPanel"/>
-                                <Button Name="BtnRefreshDashboard" Content="Refresh" Style="{StaticResource SecondaryButtonStyle}"
-                                        HorizontalAlignment="Left" Margin="0,14,0,0" Padding="16,8"/>
+                                <Button Name="BtnScanNow" Content="Scan Now" Style="{StaticResource SecondaryButtonStyle}"
+                                        HorizontalAlignment="Left" Margin="0,4,0,0" Padding="16,8"/>
                             </StackPanel>
                         </Grid>
                     </Border>
@@ -809,12 +866,15 @@ function Get-HealthScore {
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             <Button Grid.Column="0" Name="BtnQuickInstall" Content="Install Apps" Margin="0,0,6,0"
                                     Style="{StaticResource SecondaryButtonStyle}" Padding="0,14"/>
                             <Button Grid.Column="1" Name="BtnQuickTweaks" Content="Apply Tweaks" Margin="6,0,6,0"
                                     Style="{StaticResource SecondaryButtonStyle}" Padding="0,14"/>
-                            <Button Grid.Column="2" Name="BtnQuickCleanup" Content="Run Clean-Up" Margin="6,0,0,0"
+                            <Button Grid.Column="2" Name="BtnQuickCleanup" Content="Run Clean-Up" Margin="6,0,6,0"
+                                    Style="{StaticResource SecondaryButtonStyle}" Padding="0,14"/>
+                            <Button Grid.Column="3" Name="BtnQuickSpeedTest" Content="Speed Test" Margin="6,0,0,0"
                                     Style="{StaticResource SecondaryButtonStyle}" Padding="0,14"/>
                         </Grid>
                     </Border>
@@ -958,6 +1018,41 @@ function Get-HealthScore {
                     </Grid>
                 </Grid>
 
+                <!-- ===== PAGE: SPEED TEST ===== -->
+                <Grid Name="PageSpeedTest" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <StackPanel Grid.Row="0" Margin="0,20,0,14">
+                        <TextBlock Text="Speed Test" FontSize="26" FontWeight="Bold" Foreground="White"/>
+                        <TextBlock Text="Check your internet download speed and latency." Foreground="#64748b" FontSize="13" Margin="0,2,0,0"/>
+                    </StackPanel>
+                    <Border Grid.Row="1" Style="{StaticResource CardStyle}" Padding="28" VerticalAlignment="Top">
+                        <StackPanel HorizontalAlignment="Center">
+                            <Grid Margin="0,0,0,20">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="160"/>
+                                    <ColumnDefinition Width="160"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" HorizontalAlignment="Center">
+                                    <TextBlock Text="Download" Foreground="#94a3b8" FontSize="13" HorizontalAlignment="Center"/>
+                                    <TextBlock Name="TxtDownloadSpeed" Text="--" FontSize="34" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="Mbps" Foreground="#64748b" FontSize="12" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" HorizontalAlignment="Center">
+                                    <TextBlock Text="Ping" Foreground="#94a3b8" FontSize="13" HorizontalAlignment="Center"/>
+                                    <TextBlock Name="TxtPingResult" Text="--" FontSize="34" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="ms" Foreground="#64748b" FontSize="12" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Grid>
+                            <Button Name="BtnRunSpeedTest" Content="Run Speed Test" Padding="30,12" HorizontalAlignment="Center"/>
+                            <TextBlock Name="TxtSpeedTestStatus" Text="Tests download speed and latency using a public test server. Upload speed isn't measured."
+                                       Foreground="#64748b" FontSize="12" Margin="0,14,0,0" TextWrapping="Wrap" TextAlignment="Center" Width="320"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
                 <!-- ===== PAGE: ABOUT ===== -->
                 <Grid Name="PageAbout" Visibility="Collapsed">
                     <Grid.RowDefinitions>
@@ -1025,6 +1120,7 @@ function Get-HealthScore {
                 </Grid>
             </Grid>
         </Grid>
+        </Grid>
     </Border>
 </Window>
 "@
@@ -1056,28 +1152,33 @@ $PageDashboard = $Window.FindName("PageDashboard")
 $PageInstall   = $Window.FindName("PageInstall")
 $PageTweaks    = $Window.FindName("PageTweaks")
 $PageCleanup   = $Window.FindName("PageCleanup")
+$PageSpeedTest = $Window.FindName("PageSpeedTest")
 $PageAbout     = $Window.FindName("PageAbout")
 
 $NavDashboard    = $Window.FindName("NavDashboard")
 $NavInstall      = $Window.FindName("NavInstall")
 $NavTweaks       = $Window.FindName("NavTweaks")
 $NavCleanup      = $Window.FindName("NavCleanup")
+$NavSpeedTest    = $Window.FindName("NavSpeedTest")
 $NavAbout        = $Window.FindName("NavAbout")
 
 $NavDashboardBar = $Window.FindName("NavDashboardBar")
 $NavInstallBar   = $Window.FindName("NavInstallBar")
 $NavTweaksBar    = $Window.FindName("NavTweaksBar")
 $NavCleanupBar   = $Window.FindName("NavCleanupBar")
+$NavSpeedTestBar = $Window.FindName("NavSpeedTestBar")
 $NavAboutBar     = $Window.FindName("NavAboutBar")
 
 $NavInstallIcon  = $Window.FindName("NavInstallIcon")
 $NavTweaksIcon   = $Window.FindName("NavTweaksIcon")
 $NavCleanupIcon  = $Window.FindName("NavCleanupIcon")
+$NavSpeedTestIcon = $Window.FindName("NavSpeedTestIcon")
 $NavAboutIcon    = $Window.FindName("NavAboutIcon")
 
 $NavInstallText  = $Window.FindName("NavInstallText")
 $NavTweaksText   = $Window.FindName("NavTweaksText")
 $NavCleanupText  = $Window.FindName("NavCleanupText")
+$NavSpeedTestText = $Window.FindName("NavSpeedTestText")
 $NavAboutText    = $Window.FindName("NavAboutText")
 
 $AppsPanel       = $Window.FindName("AppsPanel")
@@ -1115,10 +1216,17 @@ $BtnTweaksClearAll   = $Window.FindName("BtnTweaksClearAll")
 $BtnCleanupSelectAll = $Window.FindName("BtnCleanupSelectAll")
 $BtnCleanupClearAll  = $Window.FindName("BtnCleanupClearAll")
 
-$BtnRefreshDashboard = $Window.FindName("BtnRefreshDashboard")
+$BtnScanNow          = $Window.FindName("BtnScanNow")
+$TxtScanSummary      = $Window.FindName("TxtScanSummary")
 $BtnQuickInstall     = $Window.FindName("BtnQuickInstall")
 $BtnQuickTweaks      = $Window.FindName("BtnQuickTweaks")
 $BtnQuickCleanup     = $Window.FindName("BtnQuickCleanup")
+$BtnQuickSpeedTest   = $Window.FindName("BtnQuickSpeedTest")
+
+$BtnRunSpeedTest     = $Window.FindName("BtnRunSpeedTest")
+$TxtDownloadSpeed    = $Window.FindName("TxtDownloadSpeed")
+$TxtPingResult       = $Window.FindName("TxtPingResult")
+$TxtSpeedTestStatus  = $Window.FindName("TxtSpeedTestStatus")
 
 $BtnMinimize    = $Window.FindName("BtnMinimize")
 $BtnMaximize    = $Window.FindName("BtnMaximize")
@@ -1150,11 +1258,12 @@ $BtnCloseWindow.Add_Click({ $Window.Close() })
 #  NAVIGATION - sidebar page switching
 # ---------------------------------------------------------------------------
 $NavItems = @{
-    Dashboard = @{ Border = $NavDashboard; Bar = $NavDashboardBar; Icon = $null;           Text = $null;           Page = $PageDashboard }
-    Install   = @{ Border = $NavInstall;   Bar = $NavInstallBar;   Icon = $NavInstallIcon;  Text = $NavInstallText;  Page = $PageInstall }
-    Tweaks    = @{ Border = $NavTweaks;    Bar = $NavTweaksBar;    Icon = $NavTweaksIcon;   Text = $NavTweaksText;   Page = $PageTweaks }
-    Cleanup   = @{ Border = $NavCleanup;   Bar = $NavCleanupBar;   Icon = $NavCleanupIcon;  Text = $NavCleanupText;  Page = $PageCleanup }
-    About     = @{ Border = $NavAbout;     Bar = $NavAboutBar;     Icon = $NavAboutIcon;    Text = $NavAboutText;    Page = $PageAbout }
+    Dashboard = @{ Border = $NavDashboard; Bar = $NavDashboardBar; Icon = $null;            Text = $null;            Page = $PageDashboard }
+    Install   = @{ Border = $NavInstall;   Bar = $NavInstallBar;   Icon = $NavInstallIcon;   Text = $NavInstallText;   Page = $PageInstall }
+    Tweaks    = @{ Border = $NavTweaks;    Bar = $NavTweaksBar;    Icon = $NavTweaksIcon;    Text = $NavTweaksText;    Page = $PageTweaks }
+    Cleanup   = @{ Border = $NavCleanup;   Bar = $NavCleanupBar;   Icon = $NavCleanupIcon;   Text = $NavCleanupText;   Page = $PageCleanup }
+    SpeedTest = @{ Border = $NavSpeedTest; Bar = $NavSpeedTestBar; Icon = $NavSpeedTestIcon; Text = $NavSpeedTestText; Page = $PageSpeedTest }
+    About     = @{ Border = $NavAbout;     Bar = $NavAboutBar;     Icon = $NavAboutIcon;     Text = $NavAboutText;     Page = $PageAbout }
 }
 
 $AccentColor = [System.Windows.Media.ColorConverter]::ConvertFromString("#3b82f6")
@@ -1186,17 +1295,19 @@ $NavDashboard.Add_MouseLeftButtonDown({ Show-Page "Dashboard" })
 $NavInstall.Add_MouseLeftButtonDown({   Show-Page "Install" })
 $NavTweaks.Add_MouseLeftButtonDown({    Show-Page "Tweaks" })
 $NavCleanup.Add_MouseLeftButtonDown({   Show-Page "Cleanup" })
+$NavSpeedTest.Add_MouseLeftButtonDown({ Show-Page "SpeedTest" })
 $NavAbout.Add_MouseLeftButtonDown({     Show-Page "About" })
 
 $BtnQuickInstall.Add_Click({ Show-Page "Install" })
 $BtnQuickTweaks.Add_Click({  Show-Page "Tweaks" })
 $BtnQuickCleanup.Add_Click({ Show-Page "Cleanup" })
+$BtnQuickSpeedTest.Add_Click({ Show-Page "SpeedTest" })
 
 # ---------------------------------------------------------------------------
 #  GAUGE DRAWING
 # ---------------------------------------------------------------------------
 function Draw-Gauge {
-    param([int]$Score)
+    param($Score)  # $null means "not scanned yet" - draws an empty placeholder dial
     $GaugeCanvas.Children.Clear()
 
     $cx = 100; $cy = 105; $r = 80; $thickness = 14
@@ -1247,30 +1358,40 @@ function Draw-Gauge {
     $bgArc = New-ArcPath -StartAngle 175 -EndAngle 5 -Color "#1c2d47" -Thick $thickness
     $GaugeCanvas.Children.Add($bgArc) | Out-Null
 
-    # Score arc
-    $scoreAngle = 175 - (($Score / 100.0) * 170)
-    if ($scoreAngle -lt 5) { $scoreAngle = 5 }
+    if ($null -eq $Score) {
+        # Not scanned yet - neutral placeholder, no progress arc
+        $scoreColor = "#475569"
+        $scoreText = "?"
+        $label = "Not Scanned"
+        $scoreLeft = 82
+    } else {
+        # Score arc
+        $scoreAngle = 175 - (($Score / 100.0) * 170)
+        if ($scoreAngle -lt 5) { $scoreAngle = 5 }
 
-    $scoreColor = if ($Score -ge 75) { "#22c55e" } elseif ($Score -ge 50) { "#f59e0b" } else { "#ef4444" }
-    if ($Score -gt 2) {
-        $scoreArc = New-ArcPath -StartAngle 175 -EndAngle $scoreAngle -Color $scoreColor -Thick $thickness
-        $GaugeCanvas.Children.Add($scoreArc) | Out-Null
+        $scoreColor = if ($Score -ge 75) { "#22c55e" } elseif ($Score -ge 50) { "#f59e0b" } else { "#ef4444" }
+        if ($Score -gt 2) {
+            $scoreArc = New-ArcPath -StartAngle 175 -EndAngle $scoreAngle -Color $scoreColor -Thick $thickness
+            $GaugeCanvas.Children.Add($scoreArc) | Out-Null
+        }
+        $scoreText = "$Score"
+        $label = if ($Score -ge 80) { "Excellent" } elseif ($Score -ge 60) { "Good" } elseif ($Score -ge 40) { "Fair" } else { "Needs Work" }
+        $scoreLeft = if ($Score -eq 100) { 62 } elseif ($Score -ge 10) { 72 } else { 82 }
     }
 
     # Score text
     $scoreTb = New-Object System.Windows.Controls.TextBlock
-    $scoreTb.Text = "$Score"
+    $scoreTb.Text = $scoreText
     $scoreTb.FontSize = 36
     $scoreTb.FontWeight = "Bold"
     $scoreTb.Foreground = New-Object System.Windows.Media.SolidColorBrush(
         [System.Windows.Media.ColorConverter]::ConvertFromString($scoreColor))
     $scoreTb.TextAlignment = "Center"
-    [System.Windows.Controls.Canvas]::SetLeft($scoreTb, $(if ($Score -eq 100) { 62 } elseif ($Score -ge 10) { 72 } else { 82 }))
+    [System.Windows.Controls.Canvas]::SetLeft($scoreTb, $scoreLeft)
     [System.Windows.Controls.Canvas]::SetTop($scoreTb, 52)
     $GaugeCanvas.Children.Add($scoreTb) | Out-Null
 
     # Label
-    $label = if ($Score -ge 80) { "Excellent" } elseif ($Score -ge 60) { "Good" } elseif ($Score -ge 40) { "Fair" } else { "Needs Work" }
     $labelTb = New-Object System.Windows.Controls.TextBlock
     $labelTb.Text = $label
     $labelTb.FontSize = 13
@@ -1286,44 +1407,11 @@ function Draw-Gauge {
 # ---------------------------------------------------------------------------
 #  DASHBOARD POPULATION
 # ---------------------------------------------------------------------------
-function Update-Dashboard {
+# Refreshes the factual stat cards (disk/memory/uptime/version). This is just
+# reading current system info, not a "scan" claim, so it's safe to run on load.
+function Update-DashboardStats {
     $TxtWinVersion.Text = Get-WindowsVersionText
 
-    # Health gauge
-    $health = Get-HealthScore
-    Draw-Gauge -Score $health.Score
-
-    # Issues list
-    $IssuesPanel.Children.Clear()
-    foreach ($issue in $health.Issues) {
-        $isGood = ($issue -eq "No issues detected")
-        $row = New-Object System.Windows.Controls.StackPanel
-        $row.Orientation = "Horizontal"
-        $row.Margin = "0,3"
-
-        $dot = New-Object System.Windows.Controls.TextBlock
-        $dot.Text = if ($isGood) { [char]0xE73E } else { [char]0xEA39 }
-        $dot.FontFamily = New-Object System.Windows.Media.FontFamily("Segoe MDL2 Assets")
-        $dot.FontSize = 12
-        $dot.Foreground = New-Object System.Windows.Media.SolidColorBrush(
-            [System.Windows.Media.ColorConverter]::ConvertFromString($(if ($isGood) { "#22c55e" } else { "#f59e0b" })))
-        $dot.VerticalAlignment = "Center"
-        $dot.Margin = "0,0,8,0"
-        $row.Children.Add($dot) | Out-Null
-
-        $txt = New-Object System.Windows.Controls.TextBlock
-        $txt.Text = $issue
-        $txt.FontSize = 13
-        $txt.Foreground = New-Object System.Windows.Media.SolidColorBrush(
-            [System.Windows.Media.ColorConverter]::ConvertFromString("#cbd5e1"))
-        $txt.VerticalAlignment = "Center"
-        $txt.TextWrapping = "Wrap"
-        $row.Children.Add($txt) | Out-Null
-
-        $IssuesPanel.Children.Add($row) | Out-Null
-    }
-
-    # Stat cards
     $disk = Get-DiskInfo
     $TxtDiskValue.Text = "$($disk.FreeGB) GB"
     $TxtDiskSub.Text = "free of $($disk.TotalGB) GB"
@@ -1343,7 +1431,65 @@ function Update-Dashboard {
     $TxtUptime.Text = Get-UptimeText
 }
 
-$BtnRefreshDashboard.Add_Click({ Update-Dashboard })
+# Runs the actual health scan - only ever called from an explicit user action
+# (the Scan button, or right after Install/Tweaks/Cleanup complete), never on
+# a cold window load, so the dashboard never claims a scan that didn't happen.
+function Invoke-HealthScan {
+    $BtnScanNow.IsEnabled = $false
+    $TxtScanSummary.Text = "Scanning..."
+    $TxtScanSummary.Foreground = New-Object System.Windows.Media.SolidColorBrush(
+        [System.Windows.Media.ColorConverter]::ConvertFromString("#94a3b8"))
+    $IssuesPanel.Children.Clear()
+    $TxtScanSummary.Dispatcher.Invoke([Windows.Threading.DispatcherPriority]::Background, [action]{})
+
+    Update-DashboardStats
+    $health = Get-HealthScore
+    Draw-Gauge -Score $health.Score
+
+    $realIssues = @($health.Issues | Where-Object { $_ -ne "No issues detected" })
+    if ($realIssues.Count -eq 0) {
+        $TxtScanSummary.Text = "No issues detected"
+        $TxtScanSummary.Foreground = New-Object System.Windows.Media.SolidColorBrush(
+            [System.Windows.Media.ColorConverter]::ConvertFromString("#22c55e"))
+    } else {
+        $summaryColor = if ($health.Score -ge 75) { "#22c55e" } elseif ($health.Score -ge 50) { "#f59e0b" } else { "#ef4444" }
+        $TxtScanSummary.Text = "$($realIssues.Count) issue$(if ($realIssues.Count -ne 1) { 's' } else { '' }) found"
+        $TxtScanSummary.Foreground = New-Object System.Windows.Media.SolidColorBrush(
+            [System.Windows.Media.ColorConverter]::ConvertFromString($summaryColor))
+
+        foreach ($issue in $realIssues) {
+            $row = New-Object System.Windows.Controls.StackPanel
+            $row.Orientation = "Horizontal"
+            $row.Margin = "0,3"
+
+            $dot = New-Object System.Windows.Controls.TextBlock
+            $dot.Text = [char]0xEA39
+            $dot.FontFamily = New-Object System.Windows.Media.FontFamily("Segoe MDL2 Assets")
+            $dot.FontSize = 12
+            $dot.Foreground = New-Object System.Windows.Media.SolidColorBrush(
+                [System.Windows.Media.ColorConverter]::ConvertFromString("#f59e0b"))
+            $dot.VerticalAlignment = "Center"
+            $dot.Margin = "0,0,8,0"
+            $row.Children.Add($dot) | Out-Null
+
+            $txt = New-Object System.Windows.Controls.TextBlock
+            $txt.Text = $issue
+            $txt.FontSize = 13
+            $txt.Foreground = New-Object System.Windows.Media.SolidColorBrush(
+                [System.Windows.Media.ColorConverter]::ConvertFromString("#cbd5e1"))
+            $txt.VerticalAlignment = "Center"
+            $txt.TextWrapping = "Wrap"
+            $row.Children.Add($txt) | Out-Null
+
+            $IssuesPanel.Children.Add($row) | Out-Null
+        }
+    }
+
+    $BtnScanNow.Content = "Scan Again"
+    $BtnScanNow.IsEnabled = $true
+}
+
+$BtnScanNow.Add_Click({ Invoke-HealthScan })
 
 # ---------------------------------------------------------------------------
 #  HELPER FUNCTIONS
@@ -1507,7 +1653,7 @@ $BtnInstallApps.Add_Click({
         [System.Windows.MessageBox]::Show("Installed $succeeded of $($selected.Count) app(s).`n`nFailed: $($failed -join ', ')`n`nCheck the console for details.", "Kangaroo Boost")
     }
     $BtnInstallApps.IsEnabled = $true
-    Update-Dashboard
+    Invoke-HealthScan
 })
 
 # ---------------------------------------------------------------------------
@@ -1548,7 +1694,7 @@ $BtnApplyTweaks.Add_Click({
         [System.Windows.MessageBox]::Show("Applied $succeeded of $($selected.Count) tweak(s).`n`nFailed: $($failed -join ', ')", "Kangaroo Boost")
     }
     $BtnApplyTweaks.IsEnabled = $true
-    Update-Dashboard
+    Invoke-HealthScan
 })
 
 # ---------------------------------------------------------------------------
@@ -1589,7 +1735,7 @@ $BtnRunCleanup.Add_Click({
         [System.Windows.MessageBox]::Show("Cleaned $succeeded of $($selected.Count).`n`nFailed: $($failed -join ', ')", "Kangaroo Boost")
     }
     $BtnRunCleanup.IsEnabled = $true
-    Update-Dashboard
+    Invoke-HealthScan
 })
 
 # ---------------------------------------------------------------------------
@@ -1610,10 +1756,38 @@ $BtnCreateRestorePoint.Add_Click({
 })
 
 # ---------------------------------------------------------------------------
+#  SPEED TEST (download speed via a public test file, latency via ping)
+# ---------------------------------------------------------------------------
+$BtnRunSpeedTest.Add_Click({
+    $BtnRunSpeedTest.IsEnabled = $false
+    $TxtDownloadSpeed.Text = "--"
+    $TxtPingResult.Text = "--"
+    $TxtSpeedTestStatus.Text = "Testing latency..."
+    $TxtSpeedTestStatus.Dispatcher.Invoke([Windows.Threading.DispatcherPriority]::Background, [action]{})
+
+    $ping = Test-InternetLatency
+    $TxtPingResult.Text = if ($null -ne $ping) { "$ping" } else { "N/A" }
+
+    $TxtSpeedTestStatus.Text = "Testing download speed... this can take a few seconds."
+    $TxtSpeedTestStatus.Dispatcher.Invoke([Windows.Threading.DispatcherPriority]::Background, [action]{})
+
+    $result = Test-InternetDownloadSpeed
+    if ($result.Success) {
+        $TxtDownloadSpeed.Text = "$($result.Mbps)"
+        $TxtSpeedTestStatus.Text = "Done! Speeds can vary depending on your connection and current network load."
+    } else {
+        $TxtDownloadSpeed.Text = "N/A"
+        $TxtSpeedTestStatus.Text = "Couldn't complete the speed test. Check your internet connection and try again."
+    }
+    $BtnRunSpeedTest.IsEnabled = $true
+})
+
+# ---------------------------------------------------------------------------
 #  INITIALIZE DASHBOARD & SHOW WINDOW
 # ---------------------------------------------------------------------------
 $Window.Add_ContentRendered({
-    Update-Dashboard
+    Update-DashboardStats
+    Draw-Gauge -Score $null
 })
 
 $Window.ShowDialog() | Out-Null
