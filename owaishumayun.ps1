@@ -26,6 +26,10 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, Sys
 [System.Threading.Thread]::CurrentThread.CurrentCulture   = [System.Globalization.CultureInfo]::InvariantCulture
 [System.Threading.Thread]::CurrentThread.CurrentUICulture = [System.Globalization.CultureInfo]::InvariantCulture
 
+# Windows PowerShell 5.1 doesn't always negotiate TLS 1.2 by default, which makes
+# WebClient calls to modern HTTPS endpoints (like the speed test) fail outright.
+try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch {}
+
 $WingetAvailable = $null -ne (Get-Command winget -ErrorAction SilentlyContinue)
 
 # ---------------------------------------------------------------------------
@@ -34,12 +38,20 @@ $WingetAvailable = $null -ne (Get-Command winget -ErrorAction SilentlyContinue)
 function New-SafetyRestorePoint {
     try {
         Enable-ComputerRestore -Drive "$env:SystemDrive\" -ErrorAction SilentlyContinue
-        Checkpoint-Computer -Description "Kangaroo Boost - Snapshot" -RestorePointType "MODIFY_SETTINGS" -ErrorAction Stop
+        # Windows only allows one restore point every 24h - when that limit is hit, Checkpoint-Computer
+        # doesn't throw, it just emits a WARNING and silently skips creation. Catch that warning so the
+        # console message we print actually matches what happened, instead of always claiming success.
+        $cpWarnings = $null
+        Checkpoint-Computer -Description "Kangaroo Boost - Snapshot" -RestorePointType "MODIFY_SETTINGS" -ErrorAction Stop -WarningAction SilentlyContinue -WarningVariable cpWarnings
+        if ($cpWarnings) {
+            Write-Host "[KangarooBoost] You already have a restore point from the last 24 hours - Windows won't create another one yet." -ForegroundColor Yellow
+            return "existing"
+        }
         Write-Host "[KangarooBoost] Restore point created." -ForegroundColor Green
-        return $true
+        return "created"
     } catch {
         Write-Host "[KangarooBoost] Could not create a new restore point (Windows only allows one every 24h)." -ForegroundColor Yellow
-        return $false
+        return "failed"
     }
 }
 
@@ -355,10 +367,10 @@ function Get-HealthScore {
 
 # ---------------------------------------------------------------------------
 #  SPEED TEST HELPERS
-#  Download speed is measured by timing a download of a public test file
-#  (Tele2's speedtest server, a well-known host provided specifically for
-#  this purpose). Upload speed isn't measured - a real upload benchmark
-#  needs a paired server to receive the data, which this tool doesn't have.
+#  Download and upload speed use Cloudflare's public speed-test endpoints
+#  (the same ones speed.cloudflare.com uses in the browser) - no account,
+#  no SDK, and openly documented as a public test service, unlike Ookla's
+#  speedtest.net which restricts automated use to their own licensed tools.
 # ---------------------------------------------------------------------------
 function Test-InternetLatency {
     try {
@@ -371,21 +383,37 @@ function Test-InternetLatency {
 }
 
 function Test-InternetDownloadSpeed {
-    $url = "https://speedtest.tele2.net/10MB.zip"
-    $tempFile = [System.IO.Path]::GetTempFileName()
+    $bytes = 25000000
+    $url = "https://speed.cloudflare.com/__down?bytes=$bytes"
     try {
         $wc = New-Object System.Net.WebClient
         $sw = [System.Diagnostics.Stopwatch]::StartNew()
-        $wc.DownloadFile($url, $tempFile)
+        $data = $wc.DownloadData($url)
         $sw.Stop()
-        $bytes = (Get-Item $tempFile -ErrorAction Stop).Length
         $seconds = [math]::Max($sw.Elapsed.TotalSeconds, 0.01)
-        $mbps = [math]::Round((($bytes * 8) / $seconds) / 1MB, 1)
+        $mbps = [math]::Round((($data.Length * 8) / $seconds) / 1MB, 1)
         return @{ Success = $true; Mbps = $mbps }
     } catch {
         return @{ Success = $false; Error = $_.Exception.Message }
-    } finally {
-        Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Test-InternetUploadSpeed {
+    $bytes = 10000000
+    $url = "https://speed.cloudflare.com/__up"
+    try {
+        $payload = New-Object byte[] $bytes
+        (New-Object System.Random).NextBytes($payload)
+        $wc = New-Object System.Net.WebClient
+        $wc.Headers.Add("Content-Type", "application/octet-stream")
+        $sw = [System.Diagnostics.Stopwatch]::StartNew()
+        $wc.UploadData($url, "POST", $payload) | Out-Null
+        $sw.Stop()
+        $seconds = [math]::Max($sw.Elapsed.TotalSeconds, 0.01)
+        $mbps = [math]::Round((($payload.Length * 8) / $seconds) / 1MB, 1)
+        return @{ Success = $true; Mbps = $mbps }
+    } catch {
+        return @{ Success = $false; Error = $_.Exception.Message }
     }
 }
 
@@ -1026,29 +1054,35 @@ function Test-InternetDownloadSpeed {
                     </Grid.RowDefinitions>
                     <StackPanel Grid.Row="0" Margin="0,20,0,14">
                         <TextBlock Text="Speed Test" FontSize="26" FontWeight="Bold" Foreground="White"/>
-                        <TextBlock Text="Check your internet download speed and latency." Foreground="#64748b" FontSize="13" Margin="0,2,0,0"/>
+                        <TextBlock Text="Check your internet download speed, upload speed, and latency." Foreground="#64748b" FontSize="13" Margin="0,2,0,0"/>
                     </StackPanel>
                     <Border Grid.Row="1" Style="{StaticResource CardStyle}" Padding="28" VerticalAlignment="Top">
                         <StackPanel HorizontalAlignment="Center">
                             <Grid Margin="0,0,0,20">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="160"/>
-                                    <ColumnDefinition Width="160"/>
+                                    <ColumnDefinition Width="140"/>
+                                    <ColumnDefinition Width="140"/>
+                                    <ColumnDefinition Width="140"/>
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" HorizontalAlignment="Center">
                                     <TextBlock Text="Download" Foreground="#94a3b8" FontSize="13" HorizontalAlignment="Center"/>
-                                    <TextBlock Name="TxtDownloadSpeed" Text="--" FontSize="34" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
+                                    <TextBlock Name="TxtDownloadSpeed" Text="--" FontSize="30" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
                                     <TextBlock Text="Mbps" Foreground="#64748b" FontSize="12" HorizontalAlignment="Center"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" HorizontalAlignment="Center">
+                                    <TextBlock Text="Upload" Foreground="#94a3b8" FontSize="13" HorizontalAlignment="Center"/>
+                                    <TextBlock Name="TxtUploadSpeed" Text="--" FontSize="30" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="Mbps" Foreground="#64748b" FontSize="12" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2" HorizontalAlignment="Center">
                                     <TextBlock Text="Ping" Foreground="#94a3b8" FontSize="13" HorizontalAlignment="Center"/>
-                                    <TextBlock Name="TxtPingResult" Text="--" FontSize="34" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
+                                    <TextBlock Name="TxtPingResult" Text="--" FontSize="30" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
                                     <TextBlock Text="ms" Foreground="#64748b" FontSize="12" HorizontalAlignment="Center"/>
                                 </StackPanel>
                             </Grid>
                             <Button Name="BtnRunSpeedTest" Content="Run Speed Test" Padding="30,12" HorizontalAlignment="Center"/>
-                            <TextBlock Name="TxtSpeedTestStatus" Text="Tests download speed and latency using a public test server. Upload speed isn't measured."
-                                       Foreground="#64748b" FontSize="12" Margin="0,14,0,0" TextWrapping="Wrap" TextAlignment="Center" Width="320"/>
+                            <TextBlock Name="TxtSpeedTestStatus" Text="Tests your connection using a public speed-test service. Nothing is downloaded or kept - the data is only used to time the connection."
+                                       Foreground="#64748b" FontSize="12" Margin="0,14,0,0" TextWrapping="Wrap" TextAlignment="Center" Width="340"/>
                         </StackPanel>
                     </Border>
                 </Grid>
@@ -1225,6 +1259,7 @@ $BtnQuickSpeedTest   = $Window.FindName("BtnQuickSpeedTest")
 
 $BtnRunSpeedTest     = $Window.FindName("BtnRunSpeedTest")
 $TxtDownloadSpeed    = $Window.FindName("TxtDownloadSpeed")
+$TxtUploadSpeed      = $Window.FindName("TxtUploadSpeed")
 $TxtPingResult       = $Window.FindName("TxtPingResult")
 $TxtSpeedTestStatus  = $Window.FindName("TxtSpeedTestStatus")
 
@@ -1745,12 +1780,10 @@ $BtnCreateRestorePoint.Add_Click({
     $BtnCreateRestorePoint.IsEnabled = $false
     $TxtRestoreStatus.Text = "Creating restore point..."
     $TxtRestoreStatus.Dispatcher.Invoke([Windows.Threading.DispatcherPriority]::Background, [action]{})
-    $ok = New-SafetyRestorePoint
-    if ($ok) {
-        $TxtRestoreStatus.Text = "Restore point created. You're safe to make changes."
-        $TxtProtection.Text = "Active"
-    } else {
-        $TxtRestoreStatus.Text = "Windows only allows one restore point every 24 hours - you likely already have a recent one."
+    switch (New-SafetyRestorePoint) {
+        "created"  { $TxtRestoreStatus.Text = "Restore point created. You're safe to make changes."; $TxtProtection.Text = "Active" }
+        "existing" { $TxtRestoreStatus.Text = "You already have a restore point from the last 24 hours, so Windows won't create another yet. You're still covered."; $TxtProtection.Text = "Active" }
+        "failed"   { $TxtRestoreStatus.Text = "Couldn't create a restore point. Check that System Restore is enabled for this drive." }
     }
     $BtnCreateRestorePoint.IsEnabled = $true
 })
@@ -1761,6 +1794,7 @@ $BtnCreateRestorePoint.Add_Click({
 $BtnRunSpeedTest.Add_Click({
     $BtnRunSpeedTest.IsEnabled = $false
     $TxtDownloadSpeed.Text = "--"
+    $TxtUploadSpeed.Text = "--"
     $TxtPingResult.Text = "--"
     $TxtSpeedTestStatus.Text = "Testing latency..."
     $TxtSpeedTestStatus.Dispatcher.Invoke([Windows.Threading.DispatcherPriority]::Background, [action]{})
@@ -1771,13 +1805,31 @@ $BtnRunSpeedTest.Add_Click({
     $TxtSpeedTestStatus.Text = "Testing download speed... this can take a few seconds."
     $TxtSpeedTestStatus.Dispatcher.Invoke([Windows.Threading.DispatcherPriority]::Background, [action]{})
 
-    $result = Test-InternetDownloadSpeed
-    if ($result.Success) {
-        $TxtDownloadSpeed.Text = "$($result.Mbps)"
-        $TxtSpeedTestStatus.Text = "Done! Speeds can vary depending on your connection and current network load."
+    $downloadResult = Test-InternetDownloadSpeed
+    $downloadOk = $downloadResult.Success
+    if ($downloadOk) {
+        $TxtDownloadSpeed.Text = "$($downloadResult.Mbps)"
     } else {
         $TxtDownloadSpeed.Text = "N/A"
-        $TxtSpeedTestStatus.Text = "Couldn't complete the speed test. Check your internet connection and try again."
+        Write-Host "[KangarooBoost] Download speed test failed: $($downloadResult.Error)" -ForegroundColor Yellow
+    }
+
+    $TxtSpeedTestStatus.Text = "Testing upload speed... this can take a few seconds."
+    $TxtSpeedTestStatus.Dispatcher.Invoke([Windows.Threading.DispatcherPriority]::Background, [action]{})
+
+    $uploadResult = Test-InternetUploadSpeed
+    $uploadOk = $uploadResult.Success
+    if ($uploadOk) {
+        $TxtUploadSpeed.Text = "$($uploadResult.Mbps)"
+    } else {
+        $TxtUploadSpeed.Text = "N/A"
+        Write-Host "[KangarooBoost] Upload speed test failed: $($uploadResult.Error)" -ForegroundColor Yellow
+    }
+
+    if ($downloadOk -or $uploadOk) {
+        $TxtSpeedTestStatus.Text = "Done! Speeds can vary depending on your connection and current network load."
+    } else {
+        $TxtSpeedTestStatus.Text = "Couldn't reach the speed test service. Check your internet connection, or a firewall/VPN may be blocking it."
     }
     $BtnRunSpeedTest.IsEnabled = $true
 })
