@@ -12,7 +12,7 @@ Design intent (from README.md): "simple enough for a 10-year-old, clear enough f
 
 There is no build system, linter, or test suite — this is a plain, readable `.ps1`. To exercise it:
 
-- Run locally from an elevated PowerShell 5.1+ prompt: `.\owaishumayun.ps1` (it self-checks for STA apartment mode and admin rights; `#Requires -RunAsAdministrator` will block non-elevated sessions).
+- Run locally from an elevated PowerShell 5.1+ prompt: `.\owaishumayun.ps1` (it self-checks for STA apartment mode and admin rights via a manual `WindowsPrincipal`/`IsInRole` check — not `#Requires -RunAsAdministrator`, which broke under `irm | iex` because the raw file's UTF-8 BOM gets decoded into the string and defeats `#Requires`' first-token detection).
 - The published quick-start path is `irm "https://raw.githubusercontent.com/owaishumayun/owaishumayun/main/owaishumayun.ps1" | iex` — the script re-launches itself via `Start-Process powershell.exe -STA` if it detects it wasn't started in STA mode (WPF requirement), which matters if this invocation path changes.
 - No automated tests exist. Verify changes by actually launching the WPF window and checking checkboxes render, tooltips show, and `$AppCheckboxes`/`$TweakCheckboxes`/`$CleanupCheckboxes` keys line up with what's declared.
 
