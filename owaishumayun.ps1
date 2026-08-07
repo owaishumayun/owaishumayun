@@ -653,9 +653,33 @@ function Test-InternetUploadSpeed {
             <Setter Property="CornerRadius" Value="12"/>
             <Setter Property="Padding" Value="18"/>
             <Setter Property="Effect" Value="{StaticResource CardShadowEffect}"/>
+            <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
+            <Setter Property="RenderTransform">
+                <Setter.Value>
+                    <TranslateTransform Y="0"/>
+                </Setter.Value>
+            </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                    <Trigger.EnterActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <DoubleAnimation Storyboard.TargetProperty="RenderTransform.Y" To="-3" Duration="0:0:0.14">
+                                    <DoubleAnimation.EasingFunction>
+                                        <QuadraticEase EasingMode="EaseOut"/>
+                                    </DoubleAnimation.EasingFunction>
+                                </DoubleAnimation>
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </Trigger.EnterActions>
+                    <Trigger.ExitActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <DoubleAnimation Storyboard.TargetProperty="RenderTransform.Y" To="0" Duration="0:0:0.16"/>
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </Trigger.ExitActions>
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -883,6 +907,12 @@ function Test-InternetUploadSpeed {
             <!-- Title Bar / Drag Area - spans the full window so the window controls sit top-right -->
             <Border Grid.Row="0" Name="TitleBar" Background="Transparent" Height="38" Cursor="Hand">
                 <Grid>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="16,0,0,0" VerticalAlignment="Center"
+                                IsHitTestVisible="False" Opacity="0.85">
+                        <TextBlock Text="&#xE7F8;" FontFamily="Segoe MDL2 Assets" FontSize="12" Foreground="#3b82f6" VerticalAlignment="Center"/>
+                        <TextBlock Text="Kangaroo Boost" FontSize="12" FontWeight="SemiBold" Foreground="#64748b"
+                                   Margin="8,0,0,0" VerticalAlignment="Center"/>
+                    </StackPanel>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,6,10,0">
                         <Button Name="BtnMinimize" Width="28" Height="28" Background="Transparent" Foreground="#64748b"
                                 FontFamily="Segoe MDL2 Assets" Content="&#xE921;" FontSize="10" Padding="0"
@@ -1050,6 +1080,28 @@ function Test-InternetUploadSpeed {
 
             <!-- ============ MAIN CONTENT ============ -->
             <Grid Grid.Column="1" Margin="24,16,24,20">
+
+                <!-- Ambient background glow - purely decorative depth, sits behind all pages -->
+                <Canvas IsHitTestVisible="False" ClipToBounds="False">
+                    <Ellipse Width="420" Height="420" Canvas.Right="-160" Canvas.Top="-180" Opacity="0.16">
+                        <Ellipse.Fill>
+                            <RadialGradientBrush>
+                                <GradientStop Color="#3b82f6" Offset="0"/>
+                                <GradientStop Color="#3b82f6" Offset="0.35"/>
+                                <GradientStop Color="Transparent" Offset="1"/>
+                            </RadialGradientBrush>
+                        </Ellipse.Fill>
+                    </Ellipse>
+                    <Ellipse Width="340" Height="340" Canvas.Left="-140" Canvas.Bottom="-160" Opacity="0.10">
+                        <Ellipse.Fill>
+                            <RadialGradientBrush>
+                                <GradientStop Color="#a855f7" Offset="0"/>
+                                <GradientStop Color="#a855f7" Offset="0.35"/>
+                                <GradientStop Color="Transparent" Offset="1"/>
+                            </RadialGradientBrush>
+                        </Ellipse.Fill>
+                    </Ellipse>
+                </Canvas>
 
                 <!-- ===== PAGE: DASHBOARD ===== -->
                 <Grid Name="PageDashboard">
@@ -1393,6 +1445,8 @@ function Test-InternetUploadSpeed {
                                                Foreground="#cbd5e1" FontSize="14" TextWrapping="Wrap" Margin="0,8,0,0"/>
                                     <TextBlock Text="This tool only installs apps through winget (Microsoft's Official Installer) and only changes settings you choose."
                                                Foreground="#94a3b8" FontSize="13" TextWrapping="Wrap" Margin="0,10,0,0"/>
+                                    <Button Name="BtnViewGitHub" Content="View source on GitHub" Style="{StaticResource GhostButtonStyle}"
+                                            HorizontalAlignment="Left" Margin="0,12,0,0" Padding="0,4"/>
                                 </StackPanel>
                             </Border>
                             <Border Style="{StaticResource CardStyle}" Margin="0,0,0,12">
@@ -1492,6 +1546,7 @@ $BtnInstallApps  = $Window.FindName("BtnInstallApps")
 $BtnApplyTweaks  = $Window.FindName("BtnApplyTweaks")
 $BtnRunCleanup   = $Window.FindName("BtnRunCleanup")
 $BtnCreateRestorePoint = $Window.FindName("BtnCreateRestorePoint")
+$BtnViewGitHub  = $Window.FindName("BtnViewGitHub")
 
 $PbApps          = $Window.FindName("PbApps")
 $PbTweaks        = $Window.FindName("PbTweaks")
@@ -1585,8 +1640,13 @@ $ActiveNavBrush.GradientStops.Add((New-Object System.Windows.Media.GradientStop(
     [System.Windows.Media.ColorConverter]::ConvertFromString("#0c1a33"), 1)))
 $TransBrush = New-Object System.Windows.Media.SolidColorBrush $TransColor
 
+# Default active page, kept in sync with whatever the XAML already shows on
+# load (Dashboard) so the hover handlers below know what NOT to hover-tint.
+$script:CurrentNavKey = "Dashboard"
+
 function Show-Page {
     param([string]$PageName)
+    $script:CurrentNavKey = $PageName
     foreach ($key in $NavItems.Keys) {
         $item = $NavItems[$key]
         $isActive = ($key -eq $PageName)
@@ -1614,6 +1674,19 @@ $BtnQuickInstall.Add_Click({ Show-Page "Install" })
 $BtnQuickTweaks.Add_Click({  Show-Page "Tweaks" })
 $BtnQuickCleanup.Add_Click({ Show-Page "Cleanup" })
 $BtnQuickSpeedTest.Add_Click({ Show-Page "SpeedTest" })
+
+# Subtle hover feedback on inactive sidebar rows (the active row's own
+# highlight is owned by Show-Page and must never be touched here).
+$NavHoverBrush = New-Object System.Windows.Media.SolidColorBrush(
+    [System.Windows.Media.ColorConverter]::ConvertFromString("#111b2e"))
+foreach ($navItem in $NavItems.Values) {
+    $navItem.Border.Add_MouseEnter({
+        if ($this -ne $NavItems[$script:CurrentNavKey].Border) { $this.Background = $NavHoverBrush }
+    })
+    $navItem.Border.Add_MouseLeave({
+        if ($this -ne $NavItems[$script:CurrentNavKey].Border) { $this.Background = $TransBrush }
+    })
+}
 
 # ---------------------------------------------------------------------------
 #  GAUGE DRAWING
@@ -1684,6 +1757,13 @@ function Draw-Gauge {
         $scoreColor = if ($Score -ge 75) { "#22c55e" } elseif ($Score -ge 50) { "#f59e0b" } else { "#ef4444" }
         if ($Score -gt 2) {
             $scoreArc = New-ArcPath -StartAngle 175 -EndAngle $scoreAngle -Color $scoreColor -Thick $thickness
+            # Soft matching glow so the active arc reads as "lit up" rather than flat -
+            # each arc gets its own Effect instance, so this never bleeds onto other elements.
+            $scoreArc.Effect = New-Object System.Windows.Media.Effects.DropShadowEffect
+            $scoreArc.Effect.Color = [System.Windows.Media.ColorConverter]::ConvertFromString($scoreColor)
+            $scoreArc.Effect.BlurRadius = 14
+            $scoreArc.Effect.ShadowDepth = 0
+            $scoreArc.Effect.Opacity = 0.6
             $GaugeCanvas.Children.Add($scoreArc) | Out-Null
         }
         $scoreText = "$Score"
@@ -1803,6 +1883,13 @@ function Invoke-HealthScan {
 
 $BtnScanNow.Add_Click({ Invoke-HealthScan })
 
+if ($BtnViewGitHub) {
+    $BtnViewGitHub.Add_Click({
+        try { Start-Process "https://github.com/owaishumayun/owaishumayun" }
+        catch { Write-Host "[KangarooBoost] Could not open the browser: $($_.Exception.Message)" -ForegroundColor Yellow }
+    })
+}
+
 # ---------------------------------------------------------------------------
 #  HELPER FUNCTIONS
 # ---------------------------------------------------------------------------
@@ -1829,10 +1916,32 @@ function New-SectionCard {
         [System.Windows.Media.ColorConverter]::ConvertFromString("#182a44"))
     $border.BorderThickness = "1"
     $border.CornerRadius = "8"
-    $border.Padding = "12"
+    $border.Padding = "0"
     $border.Margin = "0,0,0,10"
+    $border.ClipToBounds = $true
+
+    # Two-column layout: a thin colored accent bar on the left (matches the
+    # section's tier/category color) + the content stack, instead of a plain
+    # flat card - gives each group of checkboxes clearer visual identity.
+    $grid = New-Object System.Windows.Controls.Grid
+    $colAccent = New-Object System.Windows.Controls.ColumnDefinition
+    $colAccent.Width = New-Object System.Windows.GridLength(4)
+    $colContent = New-Object System.Windows.Controls.ColumnDefinition
+    $colContent.Width = New-Object System.Windows.GridLength(1, [System.Windows.GridUnitType]::Star)
+    $grid.ColumnDefinitions.Add($colAccent) | Out-Null
+    $grid.ColumnDefinitions.Add($colContent) | Out-Null
+
+    $accentBar = New-Object System.Windows.Controls.Border
+    $accentBar.Background = New-Object System.Windows.Media.SolidColorBrush(
+        [System.Windows.Media.ColorConverter]::ConvertFromString($HeaderColor))
+    [System.Windows.Controls.Grid]::SetColumn($accentBar, 0)
+    $grid.Children.Add($accentBar) | Out-Null
 
     $stack = New-Object System.Windows.Controls.StackPanel
+    $stack.Margin = "14,12,12,12"
+    [System.Windows.Controls.Grid]::SetColumn($stack, 1)
+    $grid.Children.Add($stack) | Out-Null
+
     $header = New-Object System.Windows.Controls.TextBlock
     $header.Text = $HeaderText
     $header.FontSize = 15
@@ -1841,7 +1950,8 @@ function New-SectionCard {
         [System.Windows.Media.ColorConverter]::ConvertFromString($HeaderColor))
     $header.Margin = "0,0,0,6"
     $stack.Children.Add($header) | Out-Null
-    $border.Child = $stack
+
+    $border.Child = $grid
     return [pscustomobject]@{ Border = $border; Stack = $stack }
 }
 
@@ -2130,6 +2240,10 @@ try {
 
     $AboutLogoEllipse = $Window.FindName("AboutLogoEllipse")
     if ($AboutLogoEllipse) { $AboutLogoEllipse.Fill = $LogoBrush }
+
+    # Use the same logo as the window/taskbar icon so the app is recognizable
+    # in Alt-Tab and the taskbar instead of showing a generic PowerShell icon.
+    $Window.Icon = $LogoBitmap
 } catch {
     Write-Host "[KangarooBoost] Could not load the About page logo: $($_.Exception.Message)" -ForegroundColor Yellow
 }
