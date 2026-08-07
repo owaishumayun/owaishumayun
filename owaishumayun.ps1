@@ -137,8 +137,91 @@ $Tweaks = @(
        Apply = { Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer" -Name "NoDriveTypeAutoRun" -Value 255 -Type DWord -Force -ErrorAction SilentlyContinue } }
 
     @{ Name = "Speed Up Menus (Reduce Delay)"; Tier = "Safe";
-       Desc = "Makes right-click menus pop open instantly instead of with a slight delay.";
-       Apply = { Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name "MenuShowDelay" -Value "0" -Force -ErrorAction SilentlyContinue } }
+       Desc = "Makes right-click menus, the Start menu, and hover tooltips pop open instantly instead of with a slight delay.";
+       Apply = {
+            Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name "MenuShowDelay" -Value "0" -Force -ErrorAction SilentlyContinue
+            Set-ItemProperty -Path "HKCU:\Control Panel\Mouse" -Name "MouseHoverTime" -Value "0" -Force -ErrorAction SilentlyContinue
+       } }
+
+    @{ Name = "Add 'End Task' to the Taskbar Right-Click Menu"; Tier = "Safe";
+       Desc = "Lets you force-close a frozen app straight from its taskbar icon, no need to open Task Manager first.";
+       Apply = {
+            New-Item -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced\TaskbarDeveloperSettings" -Force | Out-Null
+            Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced\TaskbarDeveloperSettings" -Name "TaskbarEndTask" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+       } }
+
+    @{ Name = "Jump Straight to a Window When Clicking Its Taskbar Icon"; Tier = "Safe";
+       Desc = "Clicking a taskbar icon switches to that window immediately instead of showing a preview thumbnail first.";
+       Apply = { Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "LastActiveClick" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue } }
+
+    @{ Name = "Turn Off Window and Taskbar Animations"; Tier = "Safe";
+       Desc = "Removes minimize/maximize animations, taskbar bounce effects, and list-view fade/shadow effects so everything feels instant instead of gliding.";
+       Apply = {
+            Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name "DragFullWindows" -Value "0" -Force -ErrorAction SilentlyContinue
+            Set-ItemProperty -Path "HKCU:\Control Panel\Desktop\WindowMetrics" -Name "MinAnimate" -Value "0" -Force -ErrorAction SilentlyContinue
+            Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "TaskbarAnimations" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+            Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "ListviewAlphaSelect" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+            Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "ListviewShadow" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+            New-Item -Path "HKCU:\Software\Microsoft\Windows\DWM" -Force | Out-Null
+            Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\DWM" -Name "EnableAeroPeek" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+       } }
+
+    @{ Name = "Turn Off Taskbar and Start Menu Transparency"; Tier = "Safe";
+       Desc = "Renders the taskbar, Start menu, and flyouts as solid color instead of blurred glass, which is less work for your graphics card.";
+       Apply = { Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" -Name "EnableTransparency" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue } }
+
+    @{ Name = "Turn Off the Snap Layouts Pop-up"; Tier = "Safe";
+       Desc = "Stops the 'choose another window to fill the screen' suggestion box that pops up after you snap a window.";
+       Apply = {
+            Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "SnapAssist" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+            Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "EnableSnapAssistFlyout" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+       } }
+
+    @{ Name = "Stop File Explorer Hunting the Network for Moved Shortcuts"; Tier = "Safe";
+       Desc = "Clicking an old shortcut whose target moved won't hang while Explorer searches the network trying to find it.";
+       Apply = {
+            New-Item -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer" -Force | Out-Null
+            Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer" -Name "NoResolveSearch" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+            Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer" -Name "NoResolveTrack" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+            Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer" -Name "LinkResolveIgnoreLinkInfo" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+       } }
+
+    @{ Name = "Skip 'Search the Web' When Opening an Unknown File Type"; Tier = "Safe";
+       Desc = "Goes straight to the 'choose an app' box instead of round-tripping to the internet first.";
+       Apply = {
+            New-Item -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer" -Force | Out-Null
+            Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer" -Name "NoInternetOpenWith" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+       } }
+
+    @{ Name = "Stop Explorer Constantly Checking Free Disk Space"; Tier = "Safe";
+       Desc = "Skips the low-disk-space check Explorer otherwise runs every time you open a folder.";
+       Apply = {
+            New-Item -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer" -Force | Out-Null
+            Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer" -Name "NoLowDiskSpaceChecks" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+       } }
+
+    @{ Name = "Remove Mouse Pointer Acceleration"; Tier = "Safe";
+       Desc = "Makes the cursor move 1:1 with your hand instead of speeding up on fast swipes - more predictable and responsive.";
+       Apply = {
+            Set-ItemProperty -Path "HKCU:\Control Panel\Mouse" -Name "MouseSpeed" -Value "0" -Force -ErrorAction SilentlyContinue
+            Set-ItemProperty -Path "HKCU:\Control Panel\Mouse" -Name "MouseThreshold1" -Value "0" -Force -ErrorAction SilentlyContinue
+            Set-ItemProperty -Path "HKCU:\Control Panel\Mouse" -Name "MouseThreshold2" -Value "0" -Force -ErrorAction SilentlyContinue
+       } }
+
+    @{ Name = "Make Sure Game Mode Is Turned On"; Tier = "Safe";
+       Desc = "Lets Windows automatically deprioritize background tasks in favor of whatever game or full-screen app you're using.";
+       Apply = {
+            New-Item -Path "HKCU:\Software\Microsoft\GameBar" -Force | Out-Null
+            Set-ItemProperty -Path "HKCU:\Software\Microsoft\GameBar" -Name "AutoGameModeEnabled" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+       } }
+
+    @{ Name = "Allow Long File Paths"; Tier = "Safe";
+       Desc = "Stops copy/move/delete failures on deeply nested folders or long file names by lifting the old 260-character path limit.";
+       Apply = { Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name "LongPathsEnabled" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue } }
+
+    @{ Name = "Stop Recording Every File's Last-Opened Time"; Tier = "Safe";
+       Desc = "Windows normally rewrites a timestamp every time you so much as open a file. Turning this off cuts down on background disk writes.";
+       Apply = { Start-Process fsutil -ArgumentList "behavior set disablelastaccess 1" -Wait -NoNewWindow -ErrorAction SilentlyContinue } }
 
     @{ Name = "Restore the Classic Right-Click Menu"; Tier = "Safe";
        Desc = "Brings back the full right-click menu from before Windows 11's simplified version.";
@@ -230,6 +313,69 @@ $Tweaks = @(
             Start-Process ipconfig -ArgumentList "/release" -Wait -NoNewWindow
             Start-Process ipconfig -ArgumentList "/renew" -Wait -NoNewWindow
             Start-Process ipconfig -ArgumentList "/flushdns" -Wait -NoNewWindow
+       } }
+
+    @{ Name = "Fully Disable Widgets (Not Just the Icon)"; Tier = "Advanced";
+       Desc = "Stops the Widgets background process from running at all, freeing up the memory it quietly uses - not just hiding its taskbar icon. Sign out and back in for it to fully take effect.";
+       Apply = {
+            New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Dsh" -Force | Out-Null
+            Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Dsh" -Name "AllowNewsAndInterests" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+       } }
+
+    @{ Name = "Speed Up Shutdown and Restart"; Tier = "Advanced";
+       Desc = "Reduces how long Windows waits on frozen apps and services before closing them during shutdown. Windows may close an unresponsive app faster than it would otherwise wait for you to respond - save your work first.";
+       Apply = {
+            Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name "AutoEndTasks" -Value "1" -Force -ErrorAction SilentlyContinue
+            Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name "HungAppTimeout" -Value "1000" -Force -ErrorAction SilentlyContinue
+            Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name "WaitToKillAppTimeout" -Value "2000" -Force -ErrorAction SilentlyContinue
+            Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control" -Name "WaitToKillServiceTimeout" -Value "2000" -Type String -Force -ErrorAction SilentlyContinue
+       } }
+
+    @{ Name = "Give Games and Full-Screen Apps More CPU Priority"; Tier = "Advanced";
+       Desc = "Tells Windows to favor whatever's on screen over background tasks. Best for gaming PCs - can occasionally cause brief audio or network stutter on other background apps.";
+       Apply = {
+            $mmPath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile"
+            Set-ItemProperty -Path $mmPath -Name "SystemResponsiveness" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+            Set-ItemProperty -Path $mmPath -Name "NetworkThrottlingIndex" -Value 0xFFFFFFFF -Type DWord -Force -ErrorAction SilentlyContinue
+       } }
+
+    @{ Name = "Turn Off Fullscreen Optimizations (Reduce Game Input Lag)"; Tier = "Advanced";
+       Desc = "Restores true exclusive fullscreen for games, which can reduce input lag. A small number of games may look wrong in HDR/color as a result.";
+       Apply = {
+            New-Item -Path "HKCU:\System\GameConfigStore" -Force | Out-Null
+            Set-ItemProperty -Path "HKCU:\System\GameConfigStore" -Name "GameDVR_DXGIHonorFSEWindowsCompatible" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+       } }
+
+    @{ Name = "Turn On Hardware-Accelerated GPU Scheduling"; Tier = "Advanced";
+       Desc = "Lets your graphics card manage its own work queue instead of relying on Windows, which can reduce input-to-screen delay. Needs a fairly modern GPU driver and a restart to take effect.";
+       Apply = { Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\GraphicsDrivers" -Name "HwSchMode" -Value 2 -Type DWord -Force -ErrorAction SilentlyContinue } }
+
+    @{ Name = "Keep Background Apps Running at Full Speed"; Tier = "Advanced";
+       Desc = "Stops Windows from slowing down apps you've minimized or switched away from, so switching back to them feels instant. Uses more battery on laptops.";
+       Apply = {
+            New-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Power\PowerThrottling" -Force | Out-Null
+            Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Power\PowerThrottling" -Name "PowerThrottlingOff" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+       } }
+
+    @{ Name = "Switch to Ultimate Performance Power Plan (Desktops Only)"; Tier = "Advanced";
+       Desc = "Removes extra power-saving throttles for the snappiest possible response under load. Not recommended for laptops - it drains the battery much faster.";
+       Apply = {
+            Start-Process powercfg -ArgumentList "-duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61" -Wait -NoNewWindow -ErrorAction SilentlyContinue
+            Start-Process powercfg -ArgumentList "/setactive e9a42b02-d5df-448d-aa00-03f14749eb61" -Wait -NoNewWindow -ErrorAction SilentlyContinue
+       } }
+
+    @{ Name = "Give Each File Explorer Window Its Own Process"; Tier = "Advanced";
+       Desc = "If one folder window freezes (like a slow network drive), it won't take the taskbar and your other open folders down with it. Uses a bit more memory since each window runs separately.";
+       Apply = { Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "SeparateProcess" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue } }
+
+    @{ Name = "Turn Off Superfetch/Prefetch (Best for SSDs, Not HDDs)"; Tier = "Advanced";
+       Desc = "Stops Windows from preloading apps into memory ahead of time. Worth trying on an SSD; skip this one if your main drive is a spinning hard disk, where it can actually make app launches slower.";
+       Apply = {
+            Stop-Service -Name SysMain -Force -ErrorAction SilentlyContinue
+            Set-Service -Name SysMain -StartupType Disabled -ErrorAction SilentlyContinue
+            $pfPath = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management\PrefetchParameters"
+            Set-ItemProperty -Path $pfPath -Name "EnableSuperfetch" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+            Set-ItemProperty -Path $pfPath -Name "EnablePrefetcher" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
        } }
 )
 
