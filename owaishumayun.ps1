@@ -377,6 +377,16 @@ $Tweaks = @(
             Set-ItemProperty -Path $pfPath -Name "EnableSuperfetch" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
             Set-ItemProperty -Path $pfPath -Name "EnablePrefetcher" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
        } }
+
+    @{ Name = "Disable Nagle's Algorithm (Reduce Network Delay)"; Tier = "Advanced";
+       Desc = "Stops Windows bundling small network packets together before sending, shaving a little delay off games and other latency-sensitive apps. Honest heads-up: modern broadband already minimizes this, so treat it as a minor 'every bit helps' tweak, not a real speed boost.";
+       Apply = {
+            $ifRoot = "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces"
+            Get-ChildItem -Path $ifRoot -ErrorAction SilentlyContinue | ForEach-Object {
+                Set-ItemProperty -Path $_.PsPath -Name "TcpAckFrequency" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+                Set-ItemProperty -Path $_.PsPath -Name "TCPNoDelay" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+            }
+       } }
 )
 
 # ---------------------------------------------------------------------------
@@ -446,6 +456,19 @@ $CleanupItems = @(
             Remove-Item -Path "$env:LOCALAPPDATA\FontCache*" -Force -ErrorAction SilentlyContinue
             Start-Service -Name FontCache -ErrorAction SilentlyContinue
        } }
+
+    @{ Name = "Free Up RAM (Trim App Memory)"; Desc = "Asks every running app to release memory it isn't actively using right now. Honest heads-up: Windows already manages memory efficiently on its own, so this is a short-term nudge rather than a lasting fix - harmless to run, just don't expect a dramatic difference.";
+       Apply = {
+            if (-not ([System.Management.Automation.PSTypeName]"KangarooBoost.MemTrim").Type) {
+                Add-Type -Name MemTrim -Namespace KangarooBoost -MemberDefinition '[System.Runtime.InteropServices.DllImport("psapi.dll")] public static extern bool EmptyWorkingSet(System.IntPtr hProcess);'
+            }
+            foreach ($proc in (Get-Process -ErrorAction SilentlyContinue)) {
+                try { [KangarooBoost.MemTrim]::EmptyWorkingSet($proc.Handle) | Out-Null } catch {}
+            }
+       } }
+
+    @{ Name = "Pause OneDrive Sync"; Desc = "Stops OneDrive using disk and network in the background right now - handy before gaming or a big file copy. Reopen OneDrive from the Start Menu whenever you want it syncing again.";
+       Apply = { Stop-Process -Name OneDrive -Force -ErrorAction SilentlyContinue } }
 )
 
 # ---------------------------------------------------------------------------
